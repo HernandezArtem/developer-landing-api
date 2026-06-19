@@ -1,0 +1,74 @@
+{
+  "info": {
+    "name": "Developer Landing API",
+    "description": "REST API лендинга разработчика: форма обратной связи, AI-анализ, health, metrics.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Contact",
+      "item": [
+        {
+          "name": "Submit contact (valid)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Иван Иванов\",\n  \"phone\": \"+79991234567\",\n  \"email\": \"ivan@example.com\",\n  \"comment\": \"Хочу обсудить разработку CRM для нашей компании\"\n}"
+            },
+            "url": "{{base_url}}/api/contact",
+            "description": "Отправка обращения с AI-анализом (POST /api/contact)."
+          }
+        },
+        {
+          "name": "Submit contact (validation error)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"X\",\n  \"phone\": \"abc\",\n  \"email\": \"not-an-email\",\n  \"comment\": \"hi\"\n}"
+            },
+            "url": "{{base_url}}/api/contact",
+            "description": "Ожидается HTTP 422 с деталями по полям."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/health",
+        "description": "Проверка статуса API, AI и SMTP."
+      }
+    },
+    {
+      "name": "Metrics",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/metrics",
+        "description": "Статистика обращений из data/metrics.json."
+      }
+    }
+  ]
+}
