@@ -58,16 +58,19 @@ def db_session():
 def init_db() -> None:
     if not settings.use_mysql:
         return
-    engine = get_engine()
-    Base.metadata.create_all(bind=engine)
-    with db_session() as session:
-        row = session.get(Metrics, 1)
-        if row is None:
-            session.add(
-                Metrics(
-                    id=1,
-                    by_category=dict(_DEFAULT_CATEGORIES),
-                    by_day={},
+    try:
+        engine = get_engine()
+        Base.metadata.create_all(bind=engine)
+        with db_session() as session:
+            row = session.get(Metrics, 1)
+            if row is None:
+                session.add(
+                    Metrics(
+                        id=1,
+                        by_category=dict(_DEFAULT_CATEGORIES),
+                        by_day={},
+                    )
                 )
-            )
-    logger.info("MySQL tables ready")
+        logger.info("MySQL tables ready")
+    except Exception as e:
+        logger.error("MySQL init failed — check DATABASE_URL: %s", e)
