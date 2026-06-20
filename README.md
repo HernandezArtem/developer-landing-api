@@ -6,6 +6,20 @@ Backend-сервис и одностраничный лендинг портфо
 
 REST API с AI-анализом (Mistral Nemo через OpenRouter), email-уведомлениями (mail.ru), rate limiting и двойным хранением данных (MySQL на сервере / JSON локально). Фронтенд — RU/EN с переключателем языка.
 
+## Для проверки (без установки)
+
+Проект уже развёрнут на сервере — **клонировать репозиторий и поднимать локально не нужно**.
+
+| Что | URL |
+|---|---|
+| Лендинг | http://62.217.179.202 |
+| Swagger | http://62.217.179.202/docs |
+| ReDoc | http://62.217.179.202/redoc |
+
+Postman: импортируйте `postman/Developer-Landing-API.postman_collection.json` — переменная `base_url` уже указывает на prod.
+
+`http://localhost:8000` — только для локальной разработки (см. раздел ниже).
+
 ---
 
 ## Стэк
@@ -22,7 +36,9 @@ REST API с AI-анализом (Mistral Nemo через OpenRouter), email-ув
 
 ---
 
-## Быстрый старт
+## Локальный запуск
+
+Инструкция ниже — если вы клонируете репозиторий и запускаете проект у себя на машине. Для проверки готового проекта используйте prod-ссылки выше.
 
 ### 1. Клонировать проект
 
@@ -72,8 +88,12 @@ python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 ### 5. Postman
 
-Импортируйте `postman/Developer-Landing-API.postman_collection.json`.  
-Переменная `base_url`: `http://localhost:8000` или `http://62.217.179.202`.
+Импортируйте `postman/Developer-Landing-API.postman_collection.json`.
+
+| Сценарий | `base_url` |
+|---|---|
+| Проверка на сервере (по умолчанию в коллекции) | `http://62.217.179.202` |
+| Локальный запуск | `http://localhost:8000` |
 
 ---
 
