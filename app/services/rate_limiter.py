@@ -22,10 +22,9 @@ class RateLimiter:
     def __init__(self) -> None:
         self._max = settings.RATE_LIMIT_REQUESTS
         self._window = settings.RATE_LIMIT_WINDOW_SECONDS
-        if settings.use_mysql:
-            return
         self._file = settings.RATE_LIMITS_FILE
-        self._ensure_file()
+        if not settings.use_mysql:
+            self._ensure_file()
 
     def _ensure_file(self) -> None:
         if not self._file.exists():
@@ -33,8 +32,16 @@ class RateLimiter:
 
     def check_and_increment(self, ip: str) -> None:
         if settings.use_mysql:
-            self._check_and_increment_mysql(ip)
-            return
+            try:
+                self._check_and_increment_mysql(ip)
+                return
+            except RateLimitExceeded:
+                raise
+            except Exception as e:
+                logger.warning(
+                    "Rate limit MySQL unavailable — falling back to JSON: %s", e
+                )
+        self._ensure_file()
         self._check_and_increment_json(ip)
 
     def _check_and_increment_mysql(self, ip: str) -> None:
@@ -60,9 +67,6 @@ class RateLimiter:
                     )
                 )
         except RateLimitExceeded:
-            raise
-        except Exception as e:
-            logger.error("Rate limit MySQL error: %s", e)
             raise
 
     def _check_and_increment_json(self, ip: str) -> None:

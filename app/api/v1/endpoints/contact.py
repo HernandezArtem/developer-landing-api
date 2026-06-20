@@ -77,7 +77,9 @@ async def submit_contact(
     logger.info("[%s] New contact from %s (%s)", request_id, data.email, client_ip)
 
     # ── 2. AI analysis (graceful fallback built-in) ───────────
-    ai_result = await asyncio.to_thread(_ai.analyze_sync, data.name, data.comment)
+    ai_result = await asyncio.to_thread(
+        _ai.analyze_sync, data.name, data.comment, data.locale.value
+    )
     logger.info(
         "[%s] AI: sentiment=%s category=%s available=%s",
         request_id, ai_result.sentiment, ai_result.category, ai_result.ai_available,
@@ -111,9 +113,14 @@ async def submit_contact(
 
     logger.info("[%s] Contact accepted, emails queued", request_id)
 
+    _SUCCESS_MSG = {
+        "ru": "Обращение принято! Отвечу в ближайшее время.",
+        "en": "Message received! I'll get back to you soon.",
+    }
+
     return ContactResponse(
         success=True,
-        message="Обращение принято! Отвечу в ближайшее время.",
+        message=_SUCCESS_MSG.get(data.locale.value, _SUCCESS_MSG["ru"]),
         request_id=request_id,
         ai_analysis=ai_result,
     )

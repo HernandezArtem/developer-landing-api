@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 # Patch httpx to ignore system SOCKS proxy (Windows registry)
 import httpx._client as _httpx_client
@@ -8,64 +9,165 @@ _httpx_client.get_environment_proxies = lambda: {}
 import httpx
 from app.core.config import settings
 from app.schemas.contact import AIAnalysis, SentimentType, CategoryType
+from app.services.offtopic import is_casual_offtopic, offtopic_reply
 
 logger = logging.getLogger(__name__)
 
-# Fallback used when AI is unavailable or returns garbage
-_FALLBACK = AIAnalysis(
-    sentiment=SentimentType.neutral,
-    category=CategoryType.other,
-    auto_reply=(
-        "Добрый день! Спасибо за ваше обращение — я его получил и свяжусь с вами "
-        "в ближайшее время."
-    ),
-    ai_available=False,
+_FALLBACK_RU = (
+    "Добрый день! Спасибо за ваше обращение — я его получил и свяжусь с вами "
+    "в ближайшее время."
+)
+_FALLBACK_EN = (
+    "Hello! Thank you for your message — I've received it and will get back to you soon."
 )
 
-_PROMPT = """Ты — помощник разработчика Артёма Hernandez.
-Проанализируй сообщение и верни ТОЛЬКО валидный JSON (без markdown, без пояснений).
+_PROMPT = """Ты — помощник backend-разработчика Артёма Hernandez.
+Проанализируй сообщение и верни ТОЛЬКО валидный JSON (без markdown).
 
 Поля:
 - sentiment: positive | neutral | negative
 - category: project_inquiry | job_offer | consultation | other
-- auto_reply: готовый текст ответа пользователю (2-3 предложения на русском от лица Артёма, обратись по имени)
+- auto_reply: готовый ответ пользователю (2–3 предложения от лица Артёма, обратись по имени)
 
-В auto_reply пиши только сам ответ. Не пиши инструкции, не описывай формат, не повторяй правила.
+Язык auto_reply: ТОЛЬКО {language}. Не смешивай языки.
 
-Имя отправителя: {name}
+Правила для auto_reply:
+1. Если в сообщении УЖЕ есть детали (сфера, стек, сроки, бюджет, интеграции) — ОБЯЗАТЕЛЬНО упомяни 1–2 конкретные детали из текста. Покажи, что сообщение прочитано.
+2. НЕ пиши «расскажите подробнее», «tell me more», «поделитесь деталями» — если человек уже описал задачу.
+3. Если сообщение короткое и без сути — вежливо попроси описать задачу.
+4. Оффтоп (просто «привет») — мягко верни к теме разработки.
+5. Тон: профессионально, по-человечески, без канцелярита.
+
+Плохой пример (слишком общий, детали проигнорированы):
+«Привет, Иван! Спасибо за интерес. Расскажите больше о проекте.»
+
+Хороший пример (есть отсылка к деталям):
+«Привет, Дмитрий! Система для сети автосервисов с записью и интеграцией с 1С — понятная задача. MVP к ноябрю звучит реально — давайте созвонимся на этой неделе, посмотрю ТЗ и Figma.»
+
+В auto_reply — только текст ответа, без пояснений.
+
+Имя: {name}
 Сообщение: {comment}
+"""
 
-Пример ответа в auto_reply:
-"Привет, Иван! Спасибо за интерес к проекту — опишите задачу подробнее, и я свяжусь с вами в течение дня."
+_RETRY_PROMPT = """Пользователь уже отправил РАЗВЁРНУТОЕ сообщение. Верни ТОЛЬКО JSON:
+{{"auto_reply": "..."}}
+
+auto_reply на языке: {language}
+Имя: {name}
+
+Обязательно:
+- Упомяни 1–2 КОНКРЕТНЫЕ детали из сообщения (отрасль, технологии, срок, интеграция, масштаб)
+- НЕ проси «рассказать подробнее» / «tell me more» — детали уже есть
+- 2–3 предложения от лица Артёма
+
+Сообщение:
+{comment}
 """
 
 _PROMPT_LEAK_MARKERS = (
+    "2-3 sentences",
+    "2–3 предложения",
     "2-3 предложения",
     "обратись к отправителю",
     "ответ от лица",
-    "на русском языке",
+    "from artem's voice",
+    "valid json",
     "валидный json",
     "без markdown",
+    "language rules",
+    "content rules",
+    "плохой пример",
+    "хороший пример",
+    "правила для auto_reply",
 )
 
+_GENERIC_REPLY_MARKERS = (
+    "расскажите немного больше",
+    "расскажите подробнее",
+    "расскажите больше о",
+    "расскажите о вашем проекте",
+    "поделитесь деталями",
+    "опишите задачу подробнее",
+    "tell me more",
+    "share a few more details",
+    "share more details",
+    "tell me about your project",
+    "could you share more",
+    "спасибо за интерес к моим услугам",
+    "спасибо за интерес к моему",
+    "thanks for your interest in my services",
+    "thanks for reaching out about the project — share",
+)
 
 def _looks_like_prompt_leak(text: str) -> bool:
     lower = text.lower()
     return any(marker in lower for marker in _PROMPT_LEAK_MARKERS)
 
 
-def _personalized_fallback(name: str) -> str:
+def _looks_like_generic_reply(text: str) -> bool:
+    lower = text.lower()
+    return any(marker in lower for marker in _GENERIC_REPLY_MARKERS)
+
+
+def _is_detailed_message(comment: str) -> bool:
+    text = comment.strip()
+    if len(text) >= 100:
+        return True
+    return bool(re.search(r"[.!?…]\s", text)) or text.count("\n") >= 2
+
+
+def _language_label(lang: str) -> str:
+    return "English" if lang == "en" else "Russian"
+
+
+def detect_reply_language(comment: str, site_locale: str = "ru") -> str:
+    """Pick reply language from message text; fall back to site locale."""
+    cyr = len(re.findall(r"[а-яА-ЯёЁ]", comment))
+    lat = len(re.findall(r"[a-zA-Z]", comment))
+    if lat > cyr and lat >= 3:
+        return "en"
+    if cyr > lat and cyr >= 3:
+        return "ru"
+    return site_locale if site_locale in ("ru", "en") else "ru"
+
+
+def _reply_matches_language(text: str, lang: str) -> bool:
+    cyr = len(re.findall(r"[а-яА-ЯёЁ]", text))
+    lat = len(re.findall(r"[a-zA-Z]", text))
+    if lang == "en":
+        return lat > 0 and lat >= cyr
+    return cyr > 0 and cyr >= lat
+
+
+def _personalized_fallback(name: str, reply_lang: str) -> str:
     first = name.strip().split()[0] if name.strip() else ""
+    if reply_lang == "en":
+        if first:
+            return (
+                f"Hello, {first}! Thank you for your message — I've received it "
+                "and will get back to you soon."
+            )
+        return _FALLBACK_EN
     if first:
         return (
             f"Добрый день, {first}! Спасибо за обращение — я получил ваше сообщение "
             "и свяжусь с вами в ближайшее время."
         )
-    return _FALLBACK.auto_reply
+    return _FALLBACK_RU
+
+
+def _fallback_analysis(name: str, reply_lang: str) -> AIAnalysis:
+    return AIAnalysis(
+        sentiment=SentimentType.neutral,
+        category=CategoryType.other,
+        auto_reply=_personalized_fallback(name, reply_lang),
+        ai_available=False,
+    )
 
 
 class AIService:
-    """Wraps OpenRouter API (Mistral Nemo) for sentiment analysis, classification, and auto-reply generation."""
+    """OpenRouter (Mistral Nemo): sentiment, classification, auto-reply."""
 
     def __init__(self) -> None:
         self._client: httpx.Client | None = None
@@ -91,46 +193,107 @@ class AIService:
     def is_available(self) -> bool:
         return self._client is not None
 
-    async def analyze(self, name: str, comment: str) -> AIAnalysis:
-        """Async wrapper for health checks and tests."""
-        return self.analyze_sync(name, comment)
+    def _call_openrouter(self, prompt: str) -> str:
+        response = self._client.post(
+            "/chat/completions",
+            json={
+                "model": settings.OPENROUTER_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.35,
+                "max_tokens": 300,
+            },
+        )
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"].strip()
 
-    def analyze_sync(self, name: str, comment: str) -> AIAnalysis:
-        """
-        Analyse a contact message via Mistral Nemo on OpenRouter.
-        Returns a fallback result if AI is unavailable — service keeps running normally.
-        """
+    def _parse_json_response(self, raw: str) -> dict:
+        text = raw.strip()
+        if text.startswith("```"):
+            parts = text.split("```")
+            text = parts[1].lstrip("json").strip() if len(parts) > 1 else text
+        if not text.startswith("{"):
+            start = text.find("{")
+            end = text.rfind("}")
+            if start >= 0 and end > start:
+                text = text[start : end + 1]
+        return json.loads(text)
+
+    def _parse_auto_reply(self, raw: str) -> str:
+        return (self._parse_json_response(raw).get("auto_reply") or "").strip()
+
+    def _refine_auto_reply(
+        self, name: str, comment: str, reply_lang: str, auto_reply: str
+    ) -> str:
+        if not (_is_detailed_message(comment) and _looks_like_generic_reply(auto_reply)):
+            return auto_reply
+        logger.info("Generic AI reply on detailed message — retrying with context prompt")
+        try:
+            raw = self._call_openrouter(
+                _RETRY_PROMPT.format(
+                    language=_language_label(reply_lang),
+                    name=name,
+                    comment=comment,
+                )
+            )
+            refined = self._parse_auto_reply(raw)
+            if (
+                refined
+                and not _looks_like_prompt_leak(refined)
+                and _reply_matches_language(refined, reply_lang)
+                and not _looks_like_generic_reply(refined)
+            ):
+                return refined
+        except Exception as e:
+            logger.warning("Context retry failed: %s", e)
+        return auto_reply
+
+    async def analyze(self, name: str, comment: str, locale: str = "ru") -> AIAnalysis:
+        return self.analyze_sync(name, comment, locale)
+
+    def analyze_sync(self, name: str, comment: str, locale: str = "ru") -> AIAnalysis:
+        site_lang = locale if locale in ("ru", "en") else "ru"
+        reply_lang = detect_reply_language(comment, site_lang)
+
+        if is_casual_offtopic(comment):
+            logger.info(
+                "Casual off-topic message — template reply (reply_lang=%s)", reply_lang
+            )
+            return AIAnalysis(
+                sentiment=SentimentType.neutral,
+                category=CategoryType.other,
+                auto_reply=offtopic_reply(name, reply_lang),
+                ai_available=True,
+            )
+
         if not self._client:
             logger.warning("OpenRouter unavailable — using fallback AI analysis")
-            return _FALLBACK
+            return _fallback_analysis(name, reply_lang)
 
-        prompt = _PROMPT.format(name=name, comment=comment)
         raw = ""
 
         try:
-            response = self._client.post(
-                "/chat/completions",
-                json={
-                    "model": settings.OPENROUTER_MODEL,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.3,
-                    "max_tokens": 256,
-                },
+            raw = self._call_openrouter(
+                _PROMPT.format(
+                    language=_language_label(reply_lang),
+                    name=name,
+                    comment=comment,
+                )
             )
-            response.raise_for_status()
-            payload = response.json()
-            raw = payload["choices"][0]["message"]["content"].strip()
 
-            # Strip markdown code fences if the model added them
-            if raw.startswith("```"):
-                parts = raw.split("```")
-                raw = parts[1].lstrip("json").strip() if len(parts) > 1 else raw
-
-            data = json.loads(raw)
-
+            data = self._parse_json_response(raw)
             auto_reply = (data.get("auto_reply") or "").strip()
             if not auto_reply or _looks_like_prompt_leak(auto_reply):
-                auto_reply = _personalized_fallback(name)
+                auto_reply = _personalized_fallback(name, reply_lang)
+            elif not _reply_matches_language(auto_reply, reply_lang):
+                logger.warning(
+                    "AI reply language mismatch (expected %s) — using fallback",
+                    reply_lang,
+                )
+                auto_reply = _personalized_fallback(name, reply_lang)
+            else:
+                auto_reply = self._refine_auto_reply(
+                    name, comment, reply_lang, auto_reply
+                )
 
             return AIAnalysis(
                 sentiment=SentimentType(data.get("sentiment", "neutral")),
@@ -141,10 +304,10 @@ class AIService:
 
         except json.JSONDecodeError:
             logger.error("OpenRouter returned non-JSON: %s", raw[:300])
-            return _FALLBACK
+            return _fallback_analysis(name, reply_lang)
         except ValueError as e:
             logger.error("OpenRouter returned invalid enum value: %s", e)
-            return _FALLBACK
+            return _fallback_analysis(name, reply_lang)
         except Exception as e:
             logger.error("OpenRouter API error: %s", e)
-            return _FALLBACK
+            return _fallback_analysis(name, reply_lang)

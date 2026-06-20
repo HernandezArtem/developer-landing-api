@@ -73,42 +73,79 @@ textarea.addEventListener('input', () => {
 
 /* ── Phone mask +7 (XXX)-XXX-XXXX ─────────────────── */
 const phoneInput = document.getElementById('f-phone');
+let phoneDigits = '';
 
-function applyPhoneMask() {
-  let digits = phoneInput.value.replace(/\D/g, '');
+function normalizePhoneDigits(raw) {
+  let d = String(raw).replace(/\D/g, '');
+  if (!d) return '';
+  while (d.length > 10 && (d[0] === '7' || d[0] === '8')) d = d.slice(1);
+  if (d.length === 11 && (d[0] === '7' || d[0] === '8')) d = d.slice(1);
+  return d.slice(0, 10);
+}
 
-  // Normalize: strip leading 7 or 8, keep rest
-  if (digits.startsWith('7') || digits.startsWith('8')) {
-    digits = digits.substring(1);
-  }
-  digits = digits.substring(0, 10); // 10 digits after country code
+function getPhoneDigits(value) {
+  return normalizePhoneDigits(value);
+}
 
+function formatPhone(digits) {
+  if (!digits.length) return '';
   let masked = '+7';
-  if (digits.length > 0) masked += ' (' + digits.substring(0, 3);
+  masked += ' (' + digits.slice(0, 3);
   if (digits.length >= 3) masked += ')';
-  if (digits.length > 3) masked += '-' + digits.substring(3, 6);
-  if (digits.length > 6) masked += '-' + digits.substring(6, 10);
-
-  phoneInput.value = masked;
+  if (digits.length > 3) masked += '-' + digits.slice(3, 6);
+  if (digits.length > 6) masked += '-' + digits.slice(6, 10);
+  return masked;
 }
 
-function isPhoneComplete() {
-  const digits = phoneInput.value.replace(/\D/g, '');
-  return digits.length === 11;
+function renderPhone() {
+  const formatted = formatPhone(phoneDigits);
+  phoneInput.value = formatted;
+  phoneInput.setSelectionRange(formatted.length, formatted.length);
 }
 
-phoneInput.addEventListener('input', applyPhoneMask);
+phoneInput.addEventListener('paste', e => {
+  e.preventDefault();
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  phoneDigits = normalizePhoneDigits(text);
+  renderPhone();
+});
+
 phoneInput.addEventListener('keydown', e => {
-  // Allow backspace to clear properly
-  if (e.key === 'Backspace' && phoneInput.value === '+7') {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+  const hasSelection = phoneInput.selectionStart !== phoneInput.selectionEnd;
+
+  if (e.key === 'Backspace' || e.key === 'Delete') {
     e.preventDefault();
+    if (hasSelection) {
+      phoneDigits = '';
+    } else if (e.key === 'Backspace') {
+      phoneDigits = phoneDigits.slice(0, -1);
+    }
+    renderPhone();
+    return;
+  }
+
+  if (e.key.length === 1 && /\d/.test(e.key)) {
+    e.preventDefault();
+    if (hasSelection) phoneDigits = '';
+    if (phoneDigits.length < 10) {
+      phoneDigits += e.key;
+      renderPhone();
+    }
   }
 });
-phoneInput.addEventListener('focus', () => {
-  if (!phoneInput.value) phoneInput.value = '+7';
+
+// Fallback for mobile keyboards that may skip keydown
+phoneInput.addEventListener('input', () => {
+  const parsed = normalizePhoneDigits(phoneInput.value);
+  if (parsed !== phoneDigits) {
+    phoneDigits = parsed;
+    renderPhone();
+  }
 });
+
 phoneInput.addEventListener('blur', () => {
-  if (phoneInput.value === '+7') phoneInput.value = '';
   const err = rules.phone(phoneInput.value);
   err ? setErr('phone', err) : setOk('phone');
 });
@@ -127,15 +164,14 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
    VALIDATION
 ═══════════════════════════════════════════════════════ */
 const rules = {
-  name:    v => !v.trim() ? 'Укажите имя' : v.trim().length < 2 ? 'Минимум 2 символа' : v.trim().length > 100 ? 'Максимум 100 символов' : /[^a-zA-Zа-яА-ЯёЁ\s\-']/.test(v.trim()) ? 'Только буквы и дефис' : null,
-  phone:   v => {
-    if (!v.trim()) return 'Укажите телефон';
-    const digits = v.replace(/\D/g, '');
-    if (digits.length < 11) return 'Введите номер полностью';
+  name: v => !v.trim() ? t('validation.nameRequired') : v.trim().length < 2 ? t('validation.nameMin') : v.trim().length > 100 ? t('validation.nameMax') : /[^a-zA-Zа-яА-ЯёЁ\s\-']/.test(v.trim()) ? t('validation.nameChars') : null,
+  phone: v => {
+    if (!v.trim() && !phoneDigits.length) return t('validation.phoneRequired');
+    if (phoneDigits.length < 10) return t('validation.phoneIncomplete');
     return null;
   },
-  email:   v => !v.trim() ? 'Укажите email' : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) ? 'Неверный email' : null,
-  comment: v => !v.trim() ? 'Напишите сообщение' : v.trim().length < 10 ? 'Минимум 10 символов' : v.trim().length > 2000 ? 'Максимум 2000 символов' : null,
+  email: v => !v.trim() ? t('validation.emailRequired') : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) ? t('validation.emailInvalid') : null,
+  comment: v => !v.trim() ? t('validation.commentRequired') : v.trim().length < 10 ? t('validation.commentMin') : v.trim().length > 2000 ? t('validation.commentMax') : null,
 };
 
 function setErr(id, msg) {
@@ -246,9 +282,10 @@ form.addEventListener('submit', async e => {
 
   const body = {
     name:    document.getElementById('f-name').value.trim(),
-    phone:   document.getElementById('f-phone').value.replace(/\D/g, '').replace(/^(\d{10})$/, '+7$1').replace(/^7/, '+7'),
+    phone:   phoneDigits.length === 10 ? '+7' + phoneDigits : '',
     email:   document.getElementById('f-email').value.trim(),
     comment: document.getElementById('f-comment').value.trim(),
+    locale:  getLang(),
   };
 
   setLoading(true);
@@ -268,12 +305,12 @@ form.addEventListener('submit', async e => {
         if (rules[id]) setErr(id, cleanValidationMessage(message));
       });
     } else if (res.status === 429) {
-      showError(data.error || 'Слишком много запросов. Подождите 15 минут.');
+      showError(data.error || t('errors.rateLimit'));
     } else {
-      showError(data.error || 'Что-то пошло не так. Попробуйте ещё раз.');
+      showError(data.error || t('errors.generic'));
     }
   } catch {
-    showError('Нет соединения с сервером. Проверьте интернет.');
+    showError(t('errors.network'));
   } finally {
     setLoading(false);
   }
@@ -281,6 +318,7 @@ form.addEventListener('submit', async e => {
 
 resetBtn.addEventListener('click', () => {
   form.reset();
+  phoneDigits = '';
   charCount.textContent = '0 / 2000';
   ['name','phone','email','comment'].forEach(clearState);
   form.hidden = false;

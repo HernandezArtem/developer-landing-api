@@ -7,7 +7,7 @@
   "variable": [
     {
       "key": "base_url",
-      "value": "http://localhost:8000"
+      "value": "http://62.217.179.202"
     }
   ],
   "item": [
@@ -26,7 +26,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Иван Иванов\",\n  \"phone\": \"+79991234567\",\n  \"email\": \"ivan@example.com\",\n  \"comment\": \"Хочу обсудить разработку CRM для нашей компании\"\n}"
+              "raw": "{\n  \"name\": \"Иван Иванов\",\n  \"phone\": \"+79991234567\",\n  \"email\": \"ivan@example.com\",\n  \"comment\": \"Хочу обсудить разработку CRM для нашей компании\",\n  \"locale\": \"ru\"\n}"
             },
             "url": "{{base_url}}/api/contact",
             "description": "Отправка обращения с AI-анализом (POST /api/contact)."
@@ -67,7 +67,7 @@
         "method": "GET",
         "header": [],
         "url": "{{base_url}}/api/metrics",
-        "description": "Статистика обращений из data/metrics.json."
+        "description": "Статистика обращений (MySQL или data/metrics.json)."
       }
     }
   ]

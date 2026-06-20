@@ -18,11 +18,17 @@ class CategoryType(str, Enum):
     other = "other"
 
 
+class LocaleType(str, Enum):
+    ru = "ru"
+    en = "en"
+
+
 class ContactRequest(BaseModel):
     name: str
     phone: str
     email: EmailStr
     comment: str
+    locale: LocaleType = LocaleType.ru
 
     @field_validator("name")
     @classmethod
