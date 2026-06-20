@@ -12,6 +12,7 @@
     var(--m-red) 66.66%, var(--m-red) 100%
   );
   --m-stripes-diag: linear-gradient(135deg, var(--m-blue) 0%, var(--m-dark) 50%, var(--m-red) 100%);
+  --m-stripes-vert: linear-gradient(180deg, var(--m-blue) 0%, var(--m-dark) 50%, var(--m-red) 100%);
 
   --bg:       #ffffff;
   --bg-card:  #f9fafb;
@@ -68,31 +69,39 @@ em { font-style: italic; color: var(--t2); }
 .mono { font-family: var(--mono); font-size: .88em; }
 
 /* ═══════════════════════════════════════════════════════
-   SCROLLBAR — нативный, стилизованный под BMW M
+   SCROLLBAR — нативный, градиент как у кнопки «Написать»
+   Chrome/Edge/Safari: полный BMW M градиент
+   Firefox: один цвет (API не поддерживает gradient на thumb)
 ═══════════════════════════════════════════════════════ */
 html {
   scrollbar-width: thin;
-  scrollbar-color: #1e3b7b #f0f4f8;
+  scrollbar-color: var(--m-blue) #f0f4f8;
 }
 
 html::-webkit-scrollbar {
-  width: 10px;
+  width: 12px;
 }
 
 html::-webkit-scrollbar-track {
-  background: linear-gradient(180deg, #fafbfc 0%, #f0f4f8 100%);
+  background: #f0f4f8;
   border-radius: 999px;
+  margin: 4px 0;
 }
 
 html::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: linear-gradient(180deg, #0072c6 0%, #1e3b7b 50%, #e01921 100%);
-  border: 2px solid #f0f4f8;
-  min-height: 48px;
+  background: var(--m-stripes-vert);
+  box-shadow: 0 4px 16px rgba(0, 114, 198, 0.25);
+  min-height: 56px;
 }
 
 html::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #0088e8 0%, #254a9e 50%, #ff2230 100%);
+  box-shadow: 0 6px 20px rgba(0, 114, 198, 0.35);
+}
+
+html::-webkit-scrollbar-thumb:active {
+  background: var(--m-stripes-diag);
 }
 
 /* ═══════════════════════════════════════════════════════
