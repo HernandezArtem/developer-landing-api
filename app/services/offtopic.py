@@ -37,6 +37,37 @@ def is_casual_offtopic(comment: str) -> bool:
     return any(p.match(text) for p in _CASUAL_PATTERNS)
 
 
+_NONSENSE_REPLIES = {
+    "ru": (
+        "Привет{name}! Не совсем понял сообщение — "
+        "опишите, пожалуйста, задачу или проект по разработке, и я отвечу по делу."
+    ),
+    "en": (
+        "Hi{name}! I didn't quite understand the message — "
+        "please describe your development task or project and I'll reply properly."
+    ),
+}
+
+
+def is_nonsense_message(comment: str) -> bool:
+    """Keyboard mash / gibberish without a real request."""
+    text = comment.strip()
+    if len(text) < 15:
+        return False
+    words = re.findall(r"[a-zA-Zа-яА-ЯёЁ]{3,}", text)
+    if len(words) >= 3:
+        return False
+    compact = re.sub(r"\s+", "", text)
+    return len(compact) >= 20 and len(words) <= 1
+
+
+def nonsense_reply(name: str, locale: str) -> str:
+    lang = locale if locale in _NONSENSE_REPLIES else "ru"
+    first = name.strip().split()[0] if name.strip() else ""
+    suffix = f", {first}" if first else ""
+    return _NONSENSE_REPLIES[lang].format(name=suffix)
+
+
 def offtopic_reply(name: str, locale: str) -> str:
     lang = locale if locale in _OFFTOPIC_REPLIES else "ru"
     first = name.strip().split()[0] if name.strip() else ""

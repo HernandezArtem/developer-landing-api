@@ -231,6 +231,11 @@ const PROMPT_LEAK_MARKERS = [
   'обратись к отправителю',
   'ответ от лица',
   'на русском языке',
+  'я помощник',
+  'меня зовут',
+  'assistant of artem',
+  'помощник артёма',
+  'помощник артем',
 ];
 
 function sanitizeAutoReply(reply) {
