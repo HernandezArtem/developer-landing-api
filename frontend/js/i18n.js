@@ -8,6 +8,10 @@ const I18N = {
     hero: {
       badge: 'Открыт для проектов',
       greeting: 'Привет, я',
+      firstName: 'Артём',
+      lastName: 'Hernandez',
+      fullName: 'Артём Hernandez',
+      initials: 'АН',
       role: 'Backend Developer / DBA',
       bio: 'Занимаюсь серверной частью — строю API, проектирую базы данных и слежу, чтобы всё не падало в продакшене. Люблю Python/PHP и чистый код, не люблю таблицы без индексов.',
       exp: 'года опыта',
@@ -91,6 +95,10 @@ const I18N = {
     hero: {
       badge: 'Open to projects',
       greeting: 'Hi, I\'m',
+      firstName: 'Artem',
+      lastName: 'Hernandez',
+      fullName: 'Artem Hernandez',
+      initials: 'AH',
       role: 'Backend Developer / DBA',
       bio: 'I build server-side systems — APIs, database design, and keeping production stable. I like Python/PHP and clean code; I dislike tables without indexes.',
       exp: 'years experience',
