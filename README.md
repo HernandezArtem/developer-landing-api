@@ -482,6 +482,9 @@ curl http://62.217.179.202/api/metrics
 
 Проект разрабатывался в Cursor IDE с использованием AI-ассистента. Ниже — типовые промпты и разбивка по авторству.
 
+- AI-инструмент: Cursor / Antigravity IDE
+- LLM: Claude Sonnet (через Cursor), Gemini Flash 3.5 в Antigravity, а также встроенные модели Cursor (в разных этапах разработки)
+
 ### Промпты для Cursor (примеры)
 
 ```
