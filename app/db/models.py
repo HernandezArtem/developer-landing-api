@@ -15,6 +15,7 @@ class Contact(Base):
     name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    comment: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     comment_length: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sentiment: Mapped[str | None] = mapped_column(String(20), nullable=True)
     category: Mapped[str | None] = mapped_column(String(50), nullable=True)

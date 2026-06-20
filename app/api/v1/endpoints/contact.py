@@ -91,6 +91,7 @@ async def submit_contact(
             "name": data.name,
             "phone": data.phone,
             "email": data.email,
+            "comment": data.comment,
             "comment_length": len(data.comment),
             "sentiment": ai_result.sentiment,
             "category": ai_result.category,

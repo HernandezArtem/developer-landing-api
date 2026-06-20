@@ -47,6 +47,7 @@ class LogRepository:
                         name=data.get("name"),
                         phone=data.get("phone"),
                         email=data.get("email"),
+                        comment=data.get("comment"),
                         comment_length=data.get("comment_length"),
                         sentiment=data.get("sentiment"),
                         category=data.get("category"),
