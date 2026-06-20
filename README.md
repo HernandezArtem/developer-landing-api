@@ -13,8 +13,7 @@ REST API с AI-анализом (Mistral Nemo через OpenRouter), email-ув
 | Что | URL |
 |---|---|
 | Лендинг | http://62.217.179.202 |
-| Swagger | http://62.217.179.202/docs |
-| ReDoc | http://62.217.179.202/redoc |
+| Swagger (OpenAPI) | http://62.217.179.202/docs |
 
 Postman: импортируйте `postman/Developer-Landing-API.postman_collection.json` — переменная `base_url` уже указывает на prod.
 
@@ -84,7 +83,6 @@ python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 - Лендинг: http://localhost:8000
 - Swagger: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
 
 ### 5. Postman
 
