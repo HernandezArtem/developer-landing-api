@@ -126,12 +126,14 @@ phoneInput.addEventListener('keydown', e => {
     return;
   }
 
-  if (e.key.length === 1 && /\d/.test(e.key)) {
+  if (e.key.length === 1) {
     e.preventDefault();
-    if (hasSelection) phoneDigits = '';
-    if (phoneDigits.length < 10) {
-      phoneDigits += e.key;
-      renderPhone();
+    if (/\d/.test(e.key)) {
+      if (hasSelection) phoneDigits = '';
+      if (phoneDigits.length < 10) {
+        phoneDigits += e.key;
+        renderPhone();
+      }
     }
   }
 });
@@ -139,10 +141,9 @@ phoneInput.addEventListener('keydown', e => {
 // Fallback for mobile keyboards that may skip keydown
 phoneInput.addEventListener('input', () => {
   const parsed = normalizePhoneDigits(phoneInput.value);
-  if (parsed !== phoneDigits) {
-    phoneDigits = parsed;
-    renderPhone();
-  }
+  phoneDigits = parsed;
+  const formatted = formatPhone(phoneDigits);
+  if (phoneInput.value !== formatted) renderPhone();
 });
 
 phoneInput.addEventListener('blur', () => {
