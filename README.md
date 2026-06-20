@@ -3,7 +3,6 @@
 Backend-сервис и одностраничный лендинг портфолио разработчика.
 
 **Production:** http://62.217.179.202  
-**Репозиторий:** https://github.com/HernandezArtem/developer-landing-api
 
 REST API с AI-анализом (Mistral Nemo через OpenRouter), email-уведомлениями (mail.ru), rate limiting и двойным хранением данных (MySQL на сервере / JSON локально). Фронтенд — RU/EN с переключателем языка.
 
