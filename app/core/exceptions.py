@@ -2,6 +2,7 @@ import logging
 import re
 from fastapi import Request
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from app.core.request_utils import get_client_ip
 
 logger = logging.getLogger(__name__)
