@@ -2,7 +2,7 @@ import logging
 import re
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
+from app.core.request_utils import get_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ async def validation_exception_handler(
 async def rate_limit_exception_handler(
     request: Request, exc: RateLimitExceeded
 ) -> JSONResponse:
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request)
     logger.warning("Rate limit exceeded for IP %s", client_ip)
     return JSONResponse(
         status_code=429,

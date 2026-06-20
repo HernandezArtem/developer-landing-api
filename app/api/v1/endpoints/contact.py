@@ -2,6 +2,7 @@ import asyncio
 import uuid
 import logging
 from fastapi import APIRouter, BackgroundTasks, Request
+from app.core.request_utils import get_client_ip
 from app.schemas.contact import ContactRequest, ContactResponse, AIAnalysis
 from app.services.ai_service import AIService
 from app.services.email_service import EmailService
@@ -63,7 +64,7 @@ async def submit_contact(
     data: ContactRequest,
     background_tasks: BackgroundTasks,
 ) -> ContactResponse:
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request)
 
     # ── 1. Rate limiting ──────────────────────────────────────
     try:
