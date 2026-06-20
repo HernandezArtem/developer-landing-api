@@ -68,55 +68,31 @@ em { font-style: italic; color: var(--t2); }
 .mono { font-family: var(--mono); font-size: .88em; }
 
 /* ═══════════════════════════════════════════════════════
-   SCROLLBAR — кастомный, градиент как у «Отправить сообщение»
+   SCROLLBAR — нативный, стилизованный под BMW M
 ═══════════════════════════════════════════════════════ */
 html {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: #1e3b7b #f0f4f8;
 }
+
 html::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
-}
-
-.m-scrollbar {
-  position: fixed;
-  top: 65px;
-  right: 6px;
-  bottom: 8px;
   width: 10px;
-  z-index: 150;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #fafbfc 0%, #f0f4f8 100%);
-  border: 1px solid rgba(0, 114, 198, 0.06);
-  opacity: 0;
-  transition: opacity 0.2s ease;
 }
-.m-scrollbar.visible { opacity: 1; }
 
-.m-scrollbar-thumb {
-  position: absolute;
-  left: 1px;
-  right: 1px;
-  width: auto;
-  min-height: 48px;
+html::-webkit-scrollbar-track {
+  background: linear-gradient(180deg, #fafbfc 0%, #f0f4f8 100%);
   border-radius: 999px;
-  background: linear-gradient(135deg, #0072c6 0%, #1e3b7b 50%, #e01921 100%);
-  box-shadow: 0 4px 16px rgba(0, 114, 198, 0.25);
-  cursor: grab;
-  touch-action: none;
 }
-.m-scrollbar-thumb.dragging {
-  cursor: grabbing;
+
+html::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, #0072c6 0%, #1e3b7b 50%, #e01921 100%);
+  border: 2px solid #f0f4f8;
+  min-height: 48px;
 }
-.m-scrollbar-thumb::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
-  pointer-events: none;
+
+html::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #0088e8 0%, #254a9e 50%, #ff2230 100%);
 }
 
 /* ═══════════════════════════════════════════════════════
