@@ -8,10 +8,6 @@ const I18N = {
     hero: {
       badge: 'Открыт для проектов',
       greeting: 'Привет, я',
-      firstName: 'Артём',
-      lastName: 'Hernandez',
-      fullName: 'Артём Hernandez',
-      initials: 'АН',
       role: 'Backend Developer / DBA',
       bio: 'Занимаюсь серверной частью — строю API, проектирую базы данных и слежу, чтобы всё не падало в продакшене. Люблю Python/PHP и чистый код, не люблю таблицы без индексов.',
       exp: 'года опыта',
@@ -66,6 +62,10 @@ const I18N = {
       reset: 'Отправить ещё',
     },
     footer: { copy: '© 2026 Артём Hernandez', tagline: 'Люблю BMW и только!' },
+    heroFirstName: 'Артём',
+    heroLastName: 'Hernandez',
+    heroFullName: 'Артём Hernandez',
+    heroInitials: 'АН',
     validation: {
       nameRequired: 'Укажите имя',
       nameMin: 'Минимум 2 символа',
@@ -95,10 +95,6 @@ const I18N = {
     hero: {
       badge: 'Open to projects',
       greeting: 'Hi, I\'m',
-      firstName: 'Artem',
-      lastName: 'Hernandez',
-      fullName: 'Artem Hernandez',
-      initials: 'AH',
       role: 'Backend Developer / DBA',
       bio: 'I build server-side systems — APIs, database design, and keeping production stable. I like Python/PHP and clean code; I dislike tables without indexes.',
       exp: 'years experience',
@@ -153,6 +149,10 @@ const I18N = {
       reset: 'Send another',
     },
     footer: { copy: '© 2026 Artem Hernandez', tagline: 'BMW M colors only!' },
+    heroFirstName: 'Artem',
+    heroLastName: 'Hernandez',
+    heroFullName: 'Artem Hernandez',
+    heroInitials: 'AH',
     validation: {
       nameRequired: 'Enter your name',
       nameMin: 'At least 2 characters',
@@ -211,16 +211,28 @@ function applyI18n() {
   if (metaDesc) metaDesc.content = t('meta.description');
 
   document.querySelectorAll('[data-i18n]').forEach(el => {
-    el.textContent = t(el.dataset.i18n);
+    const key = el.getAttribute('data-i18n');
+    if (!key) return;
+    const text = t(key);
+    if (text && text !== key) el.textContent = text;
   });
   document.querySelectorAll('[data-i18n-html]').forEach(el => {
-    el.innerHTML = t(el.dataset.i18nHtml);
+    const key = el.getAttribute('data-i18n-html');
+    if (!key) return;
+    const html = t(key);
+    if (html && html !== key) el.innerHTML = html;
   });
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-    el.placeholder = t(el.dataset.i18nPlaceholder);
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (!key) return;
+    const ph = t(key);
+    if (ph && ph !== key) el.placeholder = ph;
   });
   document.querySelectorAll('[data-i18n-aria]').forEach(el => {
-    el.setAttribute('aria-label', t(el.dataset.i18nAria));
+    const key = el.getAttribute('data-i18n-aria');
+    if (!key) return;
+    const label = t(key);
+    if (label && label !== key) el.setAttribute('aria-label', label);
   });
 
   const charCount = document.getElementById('charCount');
