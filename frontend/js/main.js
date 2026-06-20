@@ -164,6 +164,8 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
 /* ═══════════════════════════════════════════════════════
    VALIDATION
 ═══════════════════════════════════════════════════════ */
+const ASCII_EMAIL_RE = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,63}$/;
+
 const rules = {
   name: v => !v.trim() ? t('validation.nameRequired') : v.trim().length < 2 ? t('validation.nameMin') : v.trim().length > 100 ? t('validation.nameMax') : /[^a-zA-Zа-яА-ЯёЁ\s\-']/.test(v.trim()) ? t('validation.nameChars') : null,
   phone: v => {
@@ -171,7 +173,13 @@ const rules = {
     if (phoneDigits.length < 10) return t('validation.phoneIncomplete');
     return null;
   },
-  email: v => !v.trim() ? t('validation.emailRequired') : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) ? t('validation.emailInvalid') : null,
+  email: v => {
+    const s = v.trim();
+    if (!s) return t('validation.emailRequired');
+    if (/[^\x00-\x7F]/.test(s)) return t('validation.emailLatin');
+    if (!ASCII_EMAIL_RE.test(s)) return t('validation.emailInvalid');
+    return null;
+  },
   comment: v => !v.trim() ? t('validation.commentRequired') : v.trim().length < 10 ? t('validation.commentMin') : v.trim().length > 2000 ? t('validation.commentMax') : null,
 };
 

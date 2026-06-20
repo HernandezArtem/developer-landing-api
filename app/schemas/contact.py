@@ -39,6 +39,7 @@ _MSGS = {
         "phone_invalid": "Неверный формат. Пример: +79991234567",
         "email_required": "Укажите email",
         "email_format": "Неверный формат email. Пример: ivan@example.com",
+        "email_latin": "Email только латинскими буквами, цифрами и символами (a-z, 0-9, @, точка, дефис)",
         "email_invalid": "Неверный email. Проверьте адрес и домен.",
         "email_domain": "Домен email не найден или не принимает почту. Проверьте адрес.",
         "comment_min": "Напишите хотя бы 10 символов — расскажите подробнее",
@@ -51,6 +52,7 @@ _MSGS = {
         "phone_invalid": "Invalid format. Example: +79991234567",
         "email_required": "Enter your email",
         "email_format": "Invalid email format. Example: john@example.com",
+        "email_latin": "Email must use Latin letters, digits and symbols only (a-z, 0-9, @, dot, hyphen)",
         "email_invalid": "Invalid email. Check the address and domain.",
         "email_domain": "Email domain not found or does not accept mail.",
         "comment_min": "Write at least 10 characters — tell us more",
@@ -62,6 +64,11 @@ _MSGS = {
 def _m(key: str, info: ValidationInfo) -> str:
     lang = _lang(info)
     return _MSGS.get(lang, _MSGS["ru"])[key]
+
+
+_ASCII_EMAIL_RE = re.compile(
+    r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,63}$"
+)
 
 
 class ContactRequest(BaseModel):
@@ -97,7 +104,9 @@ class ContactRequest(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError(_m("email_required", info))
-        if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", v):
+        if re.search(r"[^\x00-\x7F]", v):
+            raise ValueError(_m("email_latin", info))
+        if not _ASCII_EMAIL_RE.match(v):
             raise ValueError(_m("email_format", info))
         try:
             result = validate_email(v, check_deliverability=True, timeout=5)
