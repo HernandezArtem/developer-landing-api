@@ -87,7 +87,6 @@ html::-webkit-scrollbar {
   bottom: 8px;
   width: 10px;
   z-index: 150;
-  pointer-events: none;
   border-radius: 999px;
   background: linear-gradient(180deg, #fafbfc 0%, #f0f4f8 100%);
   border: 1px solid rgba(0, 114, 198, 0.06);
@@ -105,7 +104,13 @@ html::-webkit-scrollbar {
   border-radius: 999px;
   background: linear-gradient(135deg, #0072c6 0%, #1e3b7b 50%, #e01921 100%);
   box-shadow: 0 4px 16px rgba(0, 114, 198, 0.25);
+  cursor: grab;
+  touch-action: none;
   transition: top 0.08s linear, height 0.08s linear;
+}
+.m-scrollbar-thumb.dragging {
+  cursor: grabbing;
+  transition: none;
 }
 .m-scrollbar-thumb::after {
   content: '';

@@ -6,11 +6,30 @@ const API = '/api';
   const thumb = document.getElementById('mScrollbarThumb');
   if (!track || !thumb) return;
 
-  function update() {
+  let dragging = false;
+  let dragStartY = 0;
+  let dragStartTop = 0;
+
+  function metrics() {
     const doc = document.documentElement;
     const viewH = doc.clientHeight;
     const scrollH = doc.scrollHeight;
     const maxScroll = scrollH - viewH;
+    const trackH = track.clientHeight;
+    const thumbH = Math.max(48, (viewH / scrollH) * trackH);
+    const maxTop = trackH - thumbH;
+    return { doc, maxScroll, trackH, thumbH, maxTop };
+  }
+
+  function scrollFromThumbTop(top) {
+    const { doc, maxScroll, maxTop } = metrics();
+    if (maxScroll <= 0) return;
+    const clamped = Math.max(0, Math.min(maxTop, top));
+    doc.scrollTop = (clamped / maxTop) * maxScroll;
+  }
+
+  function update() {
+    const { doc, maxScroll, thumbH, maxTop } = metrics();
 
     if (maxScroll <= 0) {
       track.classList.remove('visible');
@@ -18,14 +37,62 @@ const API = '/api';
     }
 
     track.classList.add('visible');
-    const trackH = track.clientHeight;
-    const thumbH = Math.max(48, (viewH / scrollH) * trackH);
-    const maxTop = trackH - thumbH;
-    const top = (doc.scrollTop / maxScroll) * maxTop;
-
     thumb.style.height = thumbH + 'px';
-    thumb.style.top = top + 'px';
+    if (!dragging) {
+      thumb.style.top = (doc.scrollTop / maxScroll) * maxTop + 'px';
+    }
   }
+
+  function startDrag(clientY) {
+    dragging = true;
+    thumb.classList.add('dragging');
+    dragStartY = clientY;
+    dragStartTop = parseFloat(thumb.style.top) || 0;
+    document.body.style.userSelect = 'none';
+  }
+
+  function moveDrag(clientY) {
+    if (!dragging) return;
+    const { maxTop } = metrics();
+    const top = Math.max(0, Math.min(maxTop, dragStartTop + clientY - dragStartY));
+    thumb.style.top = top + 'px';
+    scrollFromThumbTop(top);
+  }
+
+  function stopDrag() {
+    if (!dragging) return;
+    dragging = false;
+    thumb.classList.remove('dragging');
+    document.body.style.userSelect = '';
+    update();
+  }
+
+  thumb.addEventListener('mousedown', e => {
+    e.preventDefault();
+    startDrag(e.clientY);
+  });
+
+  track.addEventListener('mousedown', e => {
+    if (e.target === thumb) return;
+    const { thumbH, maxTop } = metrics();
+    const top = Math.max(0, Math.min(maxTop, e.clientY - track.getBoundingClientRect().top - thumbH / 2));
+    scrollFromThumbTop(top);
+  });
+
+  thumb.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) return;
+    startDrag(e.touches[0].clientY);
+  }, { passive: true });
+
+  document.addEventListener('mousemove', e => moveDrag(e.clientY));
+  document.addEventListener('mouseup', stopDrag);
+  document.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    e.preventDefault();
+    moveDrag(e.touches[0].clientY);
+  }, { passive: false });
+  document.addEventListener('touchend', stopDrag);
+  document.addEventListener('touchcancel', stopDrag);
 
   window.addEventListener('scroll', update, { passive: true });
   window.addEventListener('resize', update);
