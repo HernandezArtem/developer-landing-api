@@ -7,23 +7,22 @@ const API = '/api';
   if (!track || !thumb) return;
 
   let dragging = false;
-  let dragStartY = 0;
-  let dragStartTop = 0;
+  let dragOffsetY = 0;
 
   function metrics() {
     const doc = document.documentElement;
     const viewH = doc.clientHeight;
     const scrollH = doc.scrollHeight;
-    const maxScroll = scrollH - viewH;
+    const maxScroll = Math.max(0, scrollH - viewH);
     const trackH = track.clientHeight;
-    const thumbH = Math.max(48, (viewH / scrollH) * trackH);
-    const maxTop = trackH - thumbH;
-    return { doc, maxScroll, trackH, thumbH, maxTop };
+    const thumbH = maxScroll === 0 ? trackH : Math.max(48, (viewH / scrollH) * trackH);
+    const maxTop = Math.max(0, trackH - thumbH);
+    return { doc, maxScroll, thumbH, maxTop };
   }
 
-  function scrollFromThumbTop(top) {
+  function scrollToThumbTop(top) {
     const { doc, maxScroll, maxTop } = metrics();
-    if (maxScroll <= 0) return;
+    if (maxScroll <= 0 || maxTop <= 0) return;
     const clamped = Math.max(0, Math.min(maxTop, top));
     doc.scrollTop = (clamped / maxTop) * maxScroll;
   }
@@ -38,61 +37,45 @@ const API = '/api';
 
     track.classList.add('visible');
     thumb.style.height = thumbH + 'px';
-    if (!dragging) {
-      thumb.style.top = (doc.scrollTop / maxScroll) * maxTop + 'px';
-    }
+    thumb.style.top = maxTop === 0 ? '0px' : (doc.scrollTop / maxScroll) * maxTop + 'px';
   }
 
-  function startDrag(clientY) {
-    dragging = true;
-    thumb.classList.add('dragging');
-    dragStartY = clientY;
-    dragStartTop = parseFloat(thumb.style.top) || 0;
-    document.body.style.userSelect = 'none';
-  }
-
-  function moveDrag(clientY) {
-    if (!dragging) return;
-    const { maxTop } = metrics();
-    const top = Math.max(0, Math.min(maxTop, dragStartTop + clientY - dragStartY));
-    thumb.style.top = top + 'px';
-    scrollFromThumbTop(top);
-  }
-
-  function stopDrag() {
+  function endDrag() {
     if (!dragging) return;
     dragging = false;
     thumb.classList.remove('dragging');
     document.body.style.userSelect = '';
-    update();
   }
 
-  thumb.addEventListener('mousedown', e => {
+  thumb.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
     e.preventDefault();
-    startDrag(e.clientY);
+    dragging = true;
+    thumb.classList.add('dragging');
+    dragOffsetY = e.clientY - thumb.getBoundingClientRect().top;
+    thumb.setPointerCapture(e.pointerId);
+    document.body.style.userSelect = 'none';
   });
 
-  track.addEventListener('mousedown', e => {
-    if (e.target === thumb) return;
-    const { thumbH, maxTop } = metrics();
-    const top = Math.max(0, Math.min(maxTop, e.clientY - track.getBoundingClientRect().top - thumbH / 2));
-    scrollFromThumbTop(top);
-  });
-
-  thumb.addEventListener('touchstart', e => {
-    if (e.touches.length !== 1) return;
-    startDrag(e.touches[0].clientY);
-  }, { passive: true });
-
-  document.addEventListener('mousemove', e => moveDrag(e.clientY));
-  document.addEventListener('mouseup', stopDrag);
-  document.addEventListener('touchmove', e => {
+  thumb.addEventListener('pointermove', e => {
     if (!dragging) return;
-    e.preventDefault();
-    moveDrag(e.touches[0].clientY);
-  }, { passive: false });
-  document.addEventListener('touchend', stopDrag);
-  document.addEventListener('touchcancel', stopDrag);
+    scrollToThumbTop(e.clientY - track.getBoundingClientRect().top - dragOffsetY);
+  });
+
+  thumb.addEventListener('pointerup', endDrag);
+  thumb.addEventListener('pointercancel', endDrag);
+  thumb.addEventListener('lostpointercapture', () => {
+    dragging = false;
+    thumb.classList.remove('dragging');
+    document.body.style.userSelect = '';
+  });
+
+  track.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || e.target === thumb) return;
+    const { thumbH, maxTop } = metrics();
+    if (maxTop <= 0) return;
+    scrollToThumbTop(e.clientY - track.getBoundingClientRect().top - thumbH / 2);
+  });
 
   window.addEventListener('scroll', update, { passive: true });
   window.addEventListener('resize', update);

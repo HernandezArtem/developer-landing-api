@@ -106,11 +106,9 @@ html::-webkit-scrollbar {
   box-shadow: 0 4px 16px rgba(0, 114, 198, 0.25);
   cursor: grab;
   touch-action: none;
-  transition: top 0.08s linear, height 0.08s linear;
 }
 .m-scrollbar-thumb.dragging {
   cursor: grabbing;
-  transition: none;
 }
 .m-scrollbar-thumb::after {
   content: '';
