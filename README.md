@@ -480,12 +480,14 @@ curl http://62.217.179.202/api/metrics
 
 ## Что сделано с помощью AI (Cursor)
 
-Проект разрабатывался в Cursor IDE с использованием AI-ассистента. Ниже — типовые промпты и разбивка по авторству.
+Проект разрабатывался в Cursor с использованием AI-ассистента. Ниже — типовые промпты и разбивка по авторству.
 
 - AI-инструмент: Cursor / Antigravity IDE
 - LLM: Claude Sonnet (через Cursor), Gemini Flash 3.5 в Antigravity, а также встроенные модели Cursor (в разных этапах разработки)
 
-### Промпты для Cursor (примеры)
+### Промпты для Cursor / Antigravity (примеры)
+
+Промпты ниже использовались в Cursor и Antigravity IDE (Gemini 3.5 Flash) на разных этапах разработки.
 
 ```
 Создай FastAPI-проект для лендинга разработчика: POST /api/contact с Pydantic-валидацией,
@@ -514,7 +516,9 @@ Fallback при недоступности API. BackgroundTasks для SMTP — 
 
 ### AI сгенерировал / вручную
 
-| Компонент | AI (Cursor) | Вручную |
+В колонке AI-инструменты отмечены задачи, где использовались Cursor и/или Antigravity IDE (Gemini 3.5 Flash) для генерации каркаса и черновиков.
+
+| Компонент | AI-инструменты (Cursor/Antigravity) | Вручную |
 |---|---|---|
 | Структура проекта, endpoints, schemas | ✅ | |
 | Repository + dual storage (каркас) | ✅ | MySQL на Beget, URL-кодирование пароля |
@@ -528,4 +532,3 @@ Fallback при недоступности API. BackgroundTasks для SMTP — 
 | Промпты `_PROMPT` / `_RETRY_PROMPT` | частично | ✅ финальная версия, примеры good/bad |
 | Postman-коллекция | ✅ | проверка на prod |
 
-**Итог:** AI ускорил каркас и boilerplate; prod-конфигурация, промпты, тексты и отладка edge-cases — вручную.
