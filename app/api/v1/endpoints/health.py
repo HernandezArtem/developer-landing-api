@@ -14,6 +14,21 @@ _start_time = time.time()
 _executor = ThreadPoolExecutor(max_workers=1)
 
 
+def _check_database() -> bool:
+    if not settings.use_mysql:
+        return False
+    try:
+        from app.db.session import get_engine
+        from sqlalchemy import text
+
+        with get_engine().connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return True
+    except Exception as e:
+        logger.warning("MySQL health check failed: %s", e)
+        return False
+
+
 @router.get(
     "/health",
     summary="Проверка статуса сервиса",
@@ -39,5 +54,7 @@ async def health_check() -> dict:
         "version": settings.APP_VERSION,
         "ai_available": ai.is_available,
         "email_available": email_ok,
+        "database_available": _check_database(),
+        "storage": "mysql" if settings.use_mysql else "json",
         "uptime_seconds": int(time.time() - _start_time),
     }

@@ -52,7 +52,14 @@ class Settings(BaseSettings):
     RATE_LIMIT_REQUESTS: int = 5
     RATE_LIMIT_WINDOW_SECONDS: int = 900  # 15 min
 
-    # Paths
+    # MySQL (Beget Cloud DB) — if set, data goes to DB instead of JSON files
+    DATABASE_URL: str = ""
+
+    @property
+    def use_mysql(self) -> bool:
+        return bool(self.DATABASE_URL.strip())
+
+    # Paths (used when DATABASE_URL is empty)
     DATA_DIR: Path = Path("data")
     LOGS_DIR: Path = Path("data/logs")
     METRICS_FILE: Path = Path("data/metrics.json")

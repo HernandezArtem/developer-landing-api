@@ -14,8 +14,10 @@ from app.core.exceptions import (
 )
 from app.middleware.logging_middleware import RequestLoggingMiddleware
 from app.api.v1.router import api_router
+from app.db import init_db
 
 setup_logging()
+init_db()
 
 app = FastAPI(
     title=settings.APP_NAME,
