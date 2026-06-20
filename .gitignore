@@ -12,6 +12,10 @@ ENV/
 # Environment
 .env
 
+# Deploy keys (never commit)
+deploy_key
+deploy_key.pub
+
 # Data (logs, metrics — не в репозиторий)
 data/logs/
 data/metrics.json
