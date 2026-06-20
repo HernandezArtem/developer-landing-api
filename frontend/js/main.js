@@ -267,10 +267,15 @@ function showError(msg) {
 }
 
 function cleanValidationMessage(msg) {
-  return String(msg)
+  let text = String(msg)
     .replace(/^Value error,\s*/i, '')
     .replace(/^value is not a valid email address:\s*/i, '')
     .trim();
+  // Pydantic/email-validator иногда отдают EN — подставляем i18n
+  if (/invalid characters|not a valid email|email address|@-sign/i.test(text)) {
+    return t('validation.emailInvalid');
+  }
+  return text;
 }
 
 form.addEventListener('submit', async e => {

@@ -2,7 +2,7 @@ import re
 from enum import Enum
 from typing import Optional
 from email_validator import validate_email, EmailNotValidError
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, field_validator
 
 
 class SentimentType(str, Enum):
@@ -26,7 +26,7 @@ class LocaleType(str, Enum):
 class ContactRequest(BaseModel):
     name: str
     phone: str
-    email: EmailStr
+    email: str
     comment: str
     locale: LocaleType = LocaleType.ru
 
@@ -53,21 +53,22 @@ class ContactRequest(BaseModel):
 
     @field_validator("email")
     @classmethod
-    def validate_email_domain(cls, v: str) -> str:
-        """Проверка домена: MX/A-записи через DNS (без SMTP-проверки ящика)."""
+    def validate_email_field(cls, v: str) -> str:
+        """Формат + MX/A через email-validator (без EmailStr — иначе ошибки на англ.)."""
+        v = v.strip()
+        if not v:
+            raise ValueError("Укажите email")
+        if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", v):
+            raise ValueError("Неверный формат email. Пример: ivan@example.com")
         try:
             result = validate_email(v, check_deliverability=True, timeout=5)
-            # email-validator пропускает домен при DNS timeout / NoNameservers —
-            # без MX/A считаем адрес невалидным.
             if not result.mx:
                 raise ValueError(
                     "Домен email не найден или не принимает почту. Проверьте адрес."
                 )
             return result.normalized
         except EmailNotValidError:
-            raise ValueError(
-                "Домен email не найден или не принимает почту. Проверьте адрес."
-            )
+            raise ValueError("Неверный email. Проверьте адрес и домен.")
 
     @field_validator("comment")
     @classmethod
