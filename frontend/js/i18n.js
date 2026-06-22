@@ -192,6 +192,19 @@ function getLang() {
   return currentLang;
 }
 
+function formatRateLimitError(seconds) {
+  const s = Math.max(1, Number(seconds) || 0);
+  if (s >= 60) {
+    const m = Math.max(1, Math.round(s / 60));
+    return currentLang === 'en'
+      ? `Too many requests. Try again in ${m} min.`
+      : `Слишком много запросов. Попробуйте через ${m} мин.`;
+  }
+  return currentLang === 'en'
+    ? `Too many requests. Try again in ${s} sec.`
+    : `Слишком много запросов. Попробуйте через ${s} сек.`;
+}
+
 function setLang(lang) {
   if (!I18N[lang]) return;
   currentLang = lang;

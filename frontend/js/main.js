@@ -277,7 +277,7 @@ form.addEventListener('submit', async e => {
     } else if (res.status === 422) {
       showError(data.error || t('errors.generic'));
     } else if (res.status === 429) {
-      showError(data.error || t('errors.rateLimit'));
+      showError(formatRateLimitError(data.retry_after_seconds));
     } else {
       showError(data.error || t('errors.generic'));
     }
