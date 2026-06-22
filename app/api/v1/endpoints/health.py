@@ -56,5 +56,9 @@ async def health_check() -> dict:
         "email_available": email_ok,
         "database_available": _check_database(),
         "storage": "mysql" if settings.use_mysql else "json",
+        "rate_limit_requests": settings.RATE_LIMIT_REQUESTS,
+        "rate_limit_window_seconds": max(
+            30, settings.RATE_LIMIT_WINDOW_SECONDS
+        ),
         "uptime_seconds": int(time.time() - _start_time),
     }

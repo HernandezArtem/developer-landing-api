@@ -53,8 +53,13 @@ class RateLimiter:
         return ts
 
     @staticmethod
-    def _is_valid_window_start(window_start: int) -> bool:
-        return window_start >= _MIN_VALID_TS
+    def _is_valid_window_start(window_start: int, now: int) -> bool:
+        if window_start < _MIN_VALID_TS:
+            return False
+        # Future timestamp (clock skew / corrupt DB) → reset, not 43-min false ban.
+        if window_start > now + 120:
+            return False
+        return True
 
     def _start_new_window(self, row: RateLimitModel, now: int, reason: str, ip: str) -> None:
         row.count = 1
@@ -96,7 +101,7 @@ class RateLimiter:
                     count = int(row.count or 0)
                     window_start = self._as_ts(row.window_start)
 
-                    if not self._is_valid_window_start(window_start):
+                    if not self._is_valid_window_start(window_start, now):
                         self._start_new_window(row, now, "repaired", ip)
                         session.flush()
                         return
@@ -109,7 +114,7 @@ class RateLimiter:
                         return
 
                     if count >= self._max:
-                        retry_after = max(1, window - elapsed)
+                        retry_after = max(1, min(window - elapsed, window))
                         self._log_limited(
                             ip, count, window_start, now, retry_after
                         )
@@ -137,7 +142,7 @@ class RateLimiter:
     def _apply_limit(
         self, ip: str, count: int, window_start: int, now: int
     ) -> tuple[int, int]:
-        if not self._is_valid_window_start(window_start):
+        if not self._is_valid_window_start(window_start, now):
             return 1, now
 
         elapsed = now - window_start
@@ -145,7 +150,7 @@ class RateLimiter:
             return 1, now
 
         if count >= self._max:
-            retry_after = max(1, int(self._window - elapsed))
+            retry_after = max(1, min(int(self._window - elapsed), self._window))
             self._log_limited(ip, count, window_start, now, retry_after)
             raise RateLimitExceeded(retry_after=retry_after)
 
