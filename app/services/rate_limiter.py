@@ -31,19 +31,17 @@ class RateLimiter:
             self._file.write_text("{}", encoding="utf-8")
 
     @staticmethod
-    def _as_ts(value: float | int | None) -> float:
+    def _as_ts(value: float | int | None) -> int:
         if value is None:
-            return 0.0
+            return 0
         try:
-            return float(value)
+            ts = int(float(value))
         except (TypeError, ValueError):
-            return 0.0
-
-    def _window_expired(self, now: float, window_start: float) -> bool:
-        if window_start <= 0:
-            return True
-        elapsed = now - window_start
-        return elapsed < 0 or elapsed >= self._window
+            return 0
+        # Guard against ms timestamps or corrupt values.
+        if ts > 2_000_000_000_000:
+            ts //= 1000
+        return ts
 
     def check_and_increment(self, ip: str) -> None:
         if settings.use_mysql:
@@ -55,39 +53,17 @@ class RateLimiter:
 
     def _check_and_increment_mysql(self, ip: str) -> None:
         """
-        Atomic increment in MySQL (no read-modify-write races between gunicorn workers).
-        No JSON fallback when DATABASE_URL is set — silent fallback allowed unlimited spam.
+        Per-IP fixed window in MySQL.
+        Integer unix timestamps only — avoids FLOAT/DATETIME drift in phpMyAdmin.
         """
-        now = time.time()
-        window = float(self._window)
+        now = int(time.time())
+        window = int(self._window)
 
-        for attempt in range(2):
+        for attempt in range(3):
             try:
                 with db_session() as session:
-                    updated = session.execute(
-                        text(
-                            """
-                            UPDATE rate_limits
-                            SET count = count + 1
-                            WHERE ip = :ip
-                              AND window_start > 0
-                              AND (:now - window_start) < :window
-                              AND count < :max
-                            """
-                        ),
-                        {"ip": ip, "now": now, "window": window, "max": self._max},
-                    ).rowcount
-
-                    if updated == 1:
-                        row = session.get(RateLimitModel, ip)
-                        count = row.count if row else "?"
-                        logger.info(
-                            "Rate limit ok: ip=%s count=%s/%d window=%ds",
-                            ip, count, self._max, self._window,
-                        )
-                        return
-
                     row = session.get(RateLimitModel, ip)
+
                     if row is None:
                         session.add(
                             RateLimitModel(ip=ip, count=1, window_start=now)
@@ -98,38 +74,85 @@ class RateLimiter:
                         )
                         return
 
+                    count = int(row.count or 0)
                     window_start = self._as_ts(row.window_start)
-                    if self._window_expired(now, window_start):
+
+                    # Broken row in DB — repair anchor, keep count.
+                    if window_start <= 0:
+                        window_start = now
+                        row.window_start = window_start
+                        logger.warning(
+                            "Rate limit repaired window_start for ip=%s (was 0)",
+                            ip,
+                        )
+
+                    elapsed = now - window_start
+
+                    # New window only when time really passed.
+                    if elapsed >= window:
                         row.count = 1
                         row.window_start = now
                         logger.info(
-                            "Rate limit ok: ip=%s count=1/%d window=%ds (reset)",
+                            "Rate limit ok: ip=%s count=1/%d window=%ds (new window)",
                             ip, self._max, self._window,
                         )
                         return
 
-                    elapsed = now - window_start
-                    retry_after = max(1, int(self._window - elapsed))
-                    self._log_limited(ip, row.count, window_start, now, retry_after)
-                    raise RateLimitExceeded(retry_after=retry_after)
+                    # Limit reached — block first, never reset to 1 here.
+                    if count >= self._max:
+                        retry_after = max(1, window - elapsed)
+                        self._log_limited(
+                            ip, count, window_start, now, retry_after
+                        )
+                        raise RateLimitExceeded(retry_after=retry_after)
+
+                    updated = session.execute(
+                        text(
+                            """
+                            UPDATE rate_limits
+                            SET count = count + 1
+                            WHERE ip = :ip
+                              AND window_start = :window_start
+                              AND count = :count
+                              AND count < :max
+                            """
+                        ),
+                        {
+                            "ip": ip,
+                            "window_start": window_start,
+                            "count": count,
+                            "max": self._max,
+                        },
+                    ).rowcount
+
+                    if updated == 1:
+                        logger.info(
+                            "Rate limit ok: ip=%s count=%d/%d window=%ds",
+                            ip, count + 1, self._max, self._window,
+                        )
+                        return
+
+                    logger.debug(
+                        "Rate limit race for ip=%s count=%d, retry %d/3",
+                        ip, count, attempt + 1,
+                    )
             except IntegrityError:
-                if attempt == 1:
-                    raise
                 logger.debug("Rate limit insert race for %s, retrying", ip)
 
-    def _apply_limit(
-        self, ip: str, count: int, window_start: float, now: float
-    ) -> tuple[int, float]:
-        window_start = self._as_ts(window_start)
+        raise RuntimeError(f"rate limit could not update row for ip={ip}")
 
-        if self._window_expired(now, window_start):
+    def _apply_limit(
+        self, ip: str, count: int, window_start: int, now: int
+    ) -> tuple[int, int]:
+        if window_start <= 0:
+            window_start = now
+
+        elapsed = now - window_start
+        if elapsed >= self._window:
             return 1, now
 
         if count >= self._max:
-            elapsed = now - window_start
-            retry_after = int(self._window - elapsed)
-            if retry_after <= 0:
-                return 1, now
+            retry_after = max(1, int(self._window - elapsed))
             self._log_limited(ip, count, window_start, now, retry_after)
             raise RateLimitExceeded(retry_after=retry_after)
 
@@ -137,10 +160,11 @@ class RateLimiter:
 
     def _check_and_increment_json(self, ip: str) -> None:
         data = self._load_json()
-        now = time.time()
+        now = int(time.time())
 
         record = data.get(ip, {"count": 0, "window_start": now})
-        count, window_start = record["count"], self._as_ts(record.get("window_start"))
+        count = int(record.get("count", 0))
+        window_start = self._as_ts(record.get("window_start"))
         count, window_start = self._apply_limit(ip, count, window_start, now)
 
         data[ip] = {"count": count, "window_start": window_start}
@@ -152,10 +176,10 @@ class RateLimiter:
         )
 
     def _log_limited(
-        self, ip: str, count: int, window_start: float, now: float, retry_after: int
+        self, ip: str, count: int, window_start: int, now: int, retry_after: int
     ) -> None:
         logger.warning(
-            "Rate limit: ip=%s count=%d/%d elapsed=%.0fs window=%ds retry_after=%ds",
+            "Rate limit: ip=%s count=%d/%d elapsed=%ds window=%ds retry_after=%ds",
             ip, count, self._max, now - window_start, self._window, retry_after,
         )
 
