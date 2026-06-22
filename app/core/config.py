@@ -48,9 +48,9 @@ class Settings(BaseSettings):
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     AI_TIMEOUT: int = 15
 
-    # Rate limiting (prod: RATE_LIMIT_WINDOW_SECONDS=900)
+    # Rate limiting — окно в секундах (900 = 15 мин для жёсткого продакшена)
     RATE_LIMIT_REQUESTS: int = 5
-    RATE_LIMIT_WINDOW_SECONDS: int = 60  # seconds; 900 = 15 min for production
+    RATE_LIMIT_WINDOW_SECONDS: int = 120
 
     # MySQL (Beget Cloud DB) — if set, data goes to DB instead of JSON files
     DATABASE_URL: str = ""

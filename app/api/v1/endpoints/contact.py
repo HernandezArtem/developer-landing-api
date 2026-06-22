@@ -55,7 +55,7 @@ def _send_emails_and_update_log(
     responses={
         200: {"description": "Обращение успешно принято"},
         422: {"description": "Ошибка валидации данных"},
-        429: {"description": "Превышен rate limit (5 запросов / 15 мин с одного IP)"},
+        429: {"description": "Превышен rate limit (см. RATE_LIMIT_REQUESTS / RATE_LIMIT_WINDOW_SECONDS)"},
         500: {"description": "Внутренняя ошибка сервера"},
     },
 )

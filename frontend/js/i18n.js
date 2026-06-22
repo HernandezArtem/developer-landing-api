@@ -81,7 +81,7 @@ const I18N = {
       commentMax: 'Максимум 2000 символов',
     },
     errors: {
-      rateLimit: 'Слишком много запросов. Подождите 15 минут.',
+      rateLimit: 'Слишком много запросов. Попробуйте позже.',
       generic: 'Что-то пошло не так. Попробуйте ещё раз.',
       network: 'Нет соединения с сервером. Проверьте интернет.',
     },
@@ -168,7 +168,7 @@ const I18N = {
       commentMax: 'Maximum 2000 characters',
     },
     errors: {
-      rateLimit: 'Too many requests. Please wait 15 minutes.',
+      rateLimit: 'Too many requests. Please try again later.',
       generic: 'Something went wrong. Please try again.',
       network: 'No connection to the server. Check your internet.',
     },

@@ -73,7 +73,7 @@ cp .env.example .env
 | `OPENROUTER_API_KEY` | Ключ OpenRouter (openrouter.ai) |
 | `OPENROUTER_MODEL` | По умолчанию `mistralai/mistral-nemo` |
 | `DATABASE_URL` | **Локально оставить пустым** — данные в `data/*.json`. На VPS — строка MySQL (спецсимволы в пароле URL-кодируйте, `&` → `%26`) |
-| `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_WINDOW_SECONDS` | Лимит запросов с IP (по умолчанию 5 / 15 мин) |
+| `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_WINDOW_SECONDS` | Лимит запросов с IP (по умолчанию **5 / 120 сек**; для продакшена часто ставят `900` = 15 мин) |
 
 ### 4. Запуск локально
 
@@ -208,7 +208,7 @@ developer-landing-api/
 | Код | Ситуация |
 |---|---|
 | 422 | Ошибка валидации |
-| 429 | Rate limit (5 запросов / 15 мин с IP) |
+| 429 | Rate limit (5 запросов за окно `RATE_LIMIT_WINDOW_SECONDS` с одного IP) |
 | 500 | Внутренняя ошибка |
 
 **Пример 422** (невалидный email и короткий комментарий):
@@ -228,17 +228,17 @@ curl -X POST http://localhost:8000/api/contact \
 
 Список полей и тексты ошибок **не отдаются клиенту** (защита от перебора схемы API). Детали пишутся в `data/logs/app.log` — handler в `app/core/exceptions.py`.
 
-**Пример 429** (превышен rate limit — 5 запросов за 15 мин с одного IP):
+**Пример 429** (превышен rate limit — 6-й запрос за 120 секунд с одного IP):
 
 ```json
 {
   "success": false,
-  "error": "Слишком много запросов. Попробуйте через 15 минут.",
-  "retry_after_seconds": 900
+  "error": "Слишком много запросов. Попробуйте через 2 мин.",
+  "retry_after_seconds": 120
 }
 ```
 
-Заголовок ответа: `Retry-After: 900`.
+Заголовок ответа: `Retry-After: 120` (сколько секунд осталось до нового окна).
 
 ### GET /api/health
 
@@ -250,11 +250,14 @@ curl -X POST http://localhost:8000/api/contact \
   "email_available": true,
   "database_available": true,
   "storage": "mysql",
+  "rate_limit_requests": 5,
+  "rate_limit_window_seconds": 120,
   "uptime_seconds": 3600
 }
 ```
 
-`storage`: `mysql` или `json`. `database_available` — `true` только при рабочем `DATABASE_URL`.
+`storage`: `mysql` или `json`. `database_available` — `true` только при рабочем `DATABASE_URL`.  
+`rate_limit_*` — фактические настройки лимита на этом инстансе (удобно проверить после смены `.env`).
 
 ### GET /api/metrics
 
@@ -363,12 +366,14 @@ auto_reply на языке: {language}
 
 | Режим | Когда | Где |
 |---|---|---|
-| JSON | `DATABASE_URL` пустой | `data/logs/`, `data/metrics.json`, `data/rate_limits.json` |
-| MySQL | `DATABASE_URL` задан | Таблицы `contacts`, `metrics`, `rate_limits` |
+| JSON | `DATABASE_URL` **пустой** (локально) | `data/logs/contacts.json`, `data/metrics.json`, `data/rate_limits.json` |
+| MySQL | `DATABASE_URL` **задан** (VPS / prod) | Таблицы `contacts`, `metrics`, `rate_limits` |
 
-Папка `data/` создаётся автоматически и в `.gitignore` (логи и runtime-данные не в репозитории).
+Переключение **только через `.env`**: один и тот же код, разный backend. Локально MySQL не нужен.
 
-Rate limiting: файловый или MySQL; при ошибке БД — fallback на JSON.
+Папка `data/` создаётся автоматически и в `.gitignore` (runtime-данные не в репозитории).
+
+Rate limiting использует тот же режим: JSON-файл локально, таблица `rate_limits` на prod. **Fallback на JSON при ошибке MySQL убран** — иначе лимит обходился, а контакты всё равно писались в БД.
 
 Подробнее про файлы логов, access-log middleware и формат `contacts.json` — см. раздел [Логирование](#логирование).
 
@@ -438,7 +443,7 @@ Rate limiting: файловый или MySQL; при ошибке БД — fallb
 ## Безопасность
 
 - **CORS** — `CORSMiddleware`, origins из `ALLOWED_ORIGINS` в `.env` (по умолчанию `*`)
-- **Rate limiting** — 5 запросов / 15 мин с IP (`RATE_LIMIT_REQUESTS` / `RATE_LIMIT_WINDOW_SECONDS`); ответ 429 + заголовок `Retry-After`
+- **Rate limiting** — 5 запросов за окно `RATE_LIMIT_WINDOW_SECONDS` (по умолчанию 120 сек) с IP; ответ 429 + заголовок `Retry-After`; счётчик в `data/rate_limits.json` или MySQL `rate_limits`
 - **422 без раскрытия схемы** — клиенту только `"error": "Ошибка валидации данных"`; поля и причины — в серверный лог
 - **Email** — только латиница; MX-проверка (`check_deliverability=True`); сообщения 422 на языке `locale`
 - **Pydantic-валидация** — имя (regex), телефон (`+?[0-9]{10,15}`), комментарий (10–2000)
@@ -542,7 +547,7 @@ Fallback при недоступности API. BackgroundTasks для SMTP — 
 | Email-сервис (каркас) | ✅ | SMTP mail.ru, шаблоны писем |
 | Frontend (HTML/CSS/JS каркас) | ✅ | Тексты лендинга, phone mask fix, i18n-тексты |
 | README (черновик) | ✅ | Деплой, CI/CD, prod-URL, разделы по ТЗ |
-| Rate limiter | ✅ | Fallback JSON при ошибке MySQL |
+| Rate limiter | ✅ | MySQL BIGINT `window_start`, без JSON-fallback на prod |
 | GitHub Actions deploy | | ✅ `.github/workflows/deploy.yml` |
 | nginx + gunicorn + systemd на VPS | | ✅ |
 | Промпты `_PROMPT` / `_RETRY_PROMPT` | частично | ✅ финальная версия, примеры good/bad |
