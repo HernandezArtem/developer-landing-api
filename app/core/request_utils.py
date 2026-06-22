@@ -17,7 +17,7 @@ def get_client_ip(request: Request) -> str:
     if real_ip:
         return real_ip.strip()
 
-    if request.client:
-        return request.client.host
+    if request.client and request.client.host:
+        return request.client.host.strip()
 
     return "unknown"
