@@ -786,15 +786,17 @@ body.sport-mode .project-card h3 {
 }
 .stack-icon-wrap.stack-icon-img {
   padding: 6px;
+}
+.stack-icon-wrap.stack-icon-img-white {
   background: #fff;
 }
-.stack-accent-blue .stack-icon-wrap.stack-icon-img {
+.stack-accent-blue .stack-icon-wrap.stack-icon-img-white {
   border-color: rgba(0, 114, 198, 0.15);
 }
-.stack-accent-dark .stack-icon-wrap.stack-icon-img {
+.stack-accent-dark .stack-icon-wrap.stack-icon-img-white {
   border-color: rgba(30, 59, 123, 0.15);
 }
-.stack-accent-red .stack-icon-wrap.stack-icon-img {
+.stack-accent-red .stack-icon-wrap.stack-icon-img-white {
   border-color: rgba(224, 25, 33, 0.15);
 }
 .stack-icon-wrap.stack-icon-img img {
@@ -802,6 +804,12 @@ body.sport-mode .project-card h3 {
   height: 28px;
   object-fit: contain;
   display: block;
+  border-radius: 8px;
+}
+.stack-icon-wrap.stack-icon-img img.stack-icon-logo {
+  width: 32px;
+  height: 32px;
+  mix-blend-mode: lighten;
 }
 .stack-meta {
   font-family: var(--mono);
