@@ -1,9 +1,8 @@
 import asyncio
 import uuid
 import logging
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Request
 from app.core.request_utils import get_client_ip
-from app.core.api_key import verify_contact_api_key
 from app.schemas.contact import ContactRequest, ContactResponse, AIAnalysis
 from app.services.ai_service import AIService
 from app.services.email_service import EmailService
@@ -55,7 +54,6 @@ def _send_emails_and_update_log(
     ),
     responses={
         200: {"description": "Обращение успешно принято"},
-        401: {"description": "Неверный или отсутствующий API-ключ"},
         422: {"description": "Ошибка валидации данных"},
         429: {"description": "Превышен rate limit (5 запросов / 15 мин с одного IP)"},
         500: {"description": "Внутренняя ошибка сервера"},
@@ -65,7 +63,6 @@ async def submit_contact(
     request: Request,
     data: ContactRequest,
     background_tasks: BackgroundTasks,
-    _: None = Depends(verify_contact_api_key),
 ) -> ContactResponse:
     client_ip = get_client_ip(request)
 

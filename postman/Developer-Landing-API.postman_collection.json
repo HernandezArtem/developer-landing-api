@@ -8,10 +8,6 @@
     {
       "key": "base_url",
       "value": "http://62.217.179.202"
-    },
-    {
-      "key": "contact_api_key",
-      "value": "your-secret-key-here"
     }
   ],
   "item": [
@@ -26,10 +22,6 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
-              },
-              {
-                "key": "X-API-Key",
-                "value": "{{contact_api_key}}"
               }
             ],
             "body": {
@@ -48,10 +40,6 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
-              },
-              {
-                "key": "X-API-Key",
-                "value": "{{contact_api_key}}"
               }
             ],
             "body": {

@@ -52,9 +52,6 @@ class Settings(BaseSettings):
     RATE_LIMIT_REQUESTS: int = 5
     RATE_LIMIT_WINDOW_SECONDS: int = 900  # 15 min
 
-    # Contact form — if set, POST /api/contact requires header X-API-Key
-    CONTACT_API_KEY: str = ""
-
     # MySQL (Beget Cloud DB) — if set, data goes to DB instead of JSON files
     DATABASE_URL: str = ""
 

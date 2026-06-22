@@ -82,7 +82,6 @@ const I18N = {
     },
     errors: {
       rateLimit: 'Слишком много запросов. Подождите 15 минут.',
-      unauthorized: 'Доступ запрещён. Обновите страницу и попробуйте снова.',
       generic: 'Что-то пошло не так. Попробуйте ещё раз.',
       network: 'Нет соединения с сервером. Проверьте интернет.',
     },
@@ -170,7 +169,6 @@ const I18N = {
     },
     errors: {
       rateLimit: 'Too many requests. Please wait 15 minutes.',
-      unauthorized: 'Access denied. Refresh the page and try again.',
       generic: 'Something went wrong. Please try again.',
       network: 'No connection to the server. Check your internet.',
     },
