@@ -61,6 +61,7 @@ def init_db() -> None:
     try:
         engine = get_engine()
         Base.metadata.create_all(bind=engine)
+        _migrate_rate_limits_window_start(engine)
         with db_session() as session:
             row = session.get(Metrics, 1)
             if row is None:
@@ -74,3 +75,23 @@ def init_db() -> None:
         logger.info("MySQL tables ready")
     except Exception as e:
         logger.error("MySQL init failed — check DATABASE_URL: %s", e)
+
+
+def _migrate_rate_limits_window_start(engine) -> None:
+    """Ensure window_start is BIGINT unix seconds (not DATETIME/FLOAT)."""
+    from sqlalchemy import text
+
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    """
+                    ALTER TABLE rate_limits
+                    MODIFY window_start BIGINT UNSIGNED NOT NULL DEFAULT 0
+                    """
+                )
+            )
+            conn.commit()
+        logger.info("rate_limits.window_start migrated to BIGINT")
+    except Exception as e:
+        logger.warning("rate_limits migration skipped (may already be ok): %s", e)

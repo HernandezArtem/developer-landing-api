@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, JSON, String
+from sqlalchemy import BigInteger, Boolean, DateTime, Integer, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -28,8 +28,10 @@ class RateLimit(Base):
     __tablename__ = "rate_limits"
 
     ip: Mapped[str] = mapped_column(String(45), primary_key=True)
-    count: Mapped[int] = mapped_column(Integer, default=0)
-    window_start: Mapped[int] = mapped_column(Integer, default=0)
+    count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    window_start: Mapped[int] = mapped_column(
+        BigInteger, default=0, nullable=False
+    )
 
 
 class Metrics(Base):

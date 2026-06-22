@@ -1,6 +1,13 @@
 from starlette.requests import Request
 
 
+def normalize_ip(ip: str) -> str:
+    ip = (ip or "").strip()
+    if ip.startswith("::ffff:"):
+        ip = ip[7:]
+    return ip
+
+
 def get_client_ip(request: Request) -> str:
     """
     Real client IP behind nginx/reverse proxy.
@@ -8,16 +15,15 @@ def get_client_ip(request: Request) -> str:
     """
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        # Leftmost = original client (nginx: proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for)
-        ip = forwarded.split(",")[0].strip()
+        ip = normalize_ip(forwarded.split(",")[0])
         if ip:
             return ip
 
     real_ip = request.headers.get("x-real-ip")
     if real_ip:
-        return real_ip.strip()
+        return normalize_ip(real_ip)
 
     if request.client and request.client.host:
-        return request.client.host.strip()
+        return normalize_ip(request.client.host)
 
     return "unknown"

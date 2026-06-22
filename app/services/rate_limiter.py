@@ -1,7 +1,9 @@
 import json
 import logging
 import time
+from datetime import datetime
 
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.core.config import settings
@@ -11,7 +13,6 @@ from app.db.session import db_session
 
 logger = logging.getLogger(__name__)
 
-# Unix time before ~2001 — corrupt row from FLOAT/NULL in old schema.
 _MIN_VALID_TS = 1_000_000_000
 
 
@@ -19,7 +20,6 @@ class RateLimiter:
     """
     Rate limiter backed by MySQL or a JSON file.
     Fixed window per IP: N requests per window.
-    When the window ends the counter resets and the IP can send again.
     """
 
     def __init__(self) -> None:
@@ -33,7 +33,6 @@ class RateLimiter:
 
     @property
     def _window(self) -> int:
-        # Allow 30s minimum so you can test quickly via .env
         return max(30, settings.RATE_LIMIT_WINDOW_SECONDS)
 
     def _ensure_file(self) -> None:
@@ -41,11 +40,13 @@ class RateLimiter:
             self._file.write_text("{}", encoding="utf-8")
 
     @staticmethod
-    def _as_ts(value: float | int | None) -> int:
+    def _as_ts(value: object) -> int:
         if value is None:
             return 0
+        if isinstance(value, datetime):
+            return int(value.timestamp())
         try:
-            ts = int(float(value))
+            ts = int(float(value))  # type: ignore[arg-type]
         except (TypeError, ValueError):
             return 0
         if ts > 2_000_000_000_000:
@@ -53,80 +54,86 @@ class RateLimiter:
         return ts
 
     @staticmethod
-    def _is_valid_window_start(window_start: int, now: int) -> bool:
+    def _window_is_active(window_start: int, now: int, window: int) -> bool:
         if window_start < _MIN_VALID_TS:
             return False
-        # Future timestamp (clock skew / corrupt DB) → reset, not 43-min false ban.
         if window_start > now + 120:
             return False
-        return True
-
-    def _start_new_window(self, row: RateLimitModel, now: int, reason: str, ip: str) -> None:
-        row.count = 1
-        row.window_start = now
-        logger.info(
-            "Rate limit ok: ip=%s count=1/%d window=%ds (%s)",
-            ip, self._max, self._window, reason,
-        )
+        return (now - window_start) < window
 
     def check_and_increment(self, ip: str) -> None:
         if settings.use_mysql:
             self._check_and_increment_mysql(ip)
             return
-
         self._ensure_file()
         self._check_and_increment_json(ip)
 
     def _check_and_increment_mysql(self, ip: str) -> None:
-        """Fixed window per IP in MySQL."""
         now = int(time.time())
         window = self._window
+        mx = self._max
 
         for attempt in range(3):
             try:
                 with db_session() as session:
-                    row = session.get(RateLimitModel, ip)
+                    # Atomic increment when window is active and under limit.
+                    updated = session.execute(
+                        text(
+                            """
+                            UPDATE rate_limits
+                            SET count = count + 1
+                            WHERE ip = :ip
+                              AND count < :max
+                              AND window_start >= :min_ts
+                              AND window_start <= :now + 120
+                              AND (:now - window_start) < :window
+                            """
+                        ),
+                        {
+                            "ip": ip,
+                            "max": mx,
+                            "min_ts": _MIN_VALID_TS,
+                            "now": now,
+                            "window": window,
+                        },
+                    ).rowcount
 
+                    if updated == 1:
+                        row = session.get(RateLimitModel, ip)
+                        logger.info(
+                            "Rate limit ok: ip=%s count=%s/%d window=%ds",
+                            ip, row.count if row else "?", mx, window,
+                        )
+                        return
+
+                    row = session.get(RateLimitModel, ip)
                     if row is None:
                         session.add(
                             RateLimitModel(ip=ip, count=1, window_start=now)
                         )
-                        session.flush()
                         logger.info(
                             "Rate limit ok: ip=%s count=1/%d window=%ds (new)",
-                            ip, self._max, window,
+                            ip, mx, window,
                         )
                         return
 
                     count = int(row.count or 0)
                     window_start = self._as_ts(row.window_start)
 
-                    if not self._is_valid_window_start(window_start, now):
-                        self._start_new_window(row, now, "repaired", ip)
-                        session.flush()
+                    if not self._window_is_active(window_start, now, window):
+                        row.count = 1
+                        row.window_start = now
+                        logger.info(
+                            "Rate limit ok: ip=%s count=1/%d window=%ds "
+                            "(new window, was count=%d ws=%s)",
+                            ip, mx, window, count, window_start,
+                        )
                         return
 
                     elapsed = now - window_start
-
-                    if elapsed >= window:
-                        self._start_new_window(row, now, "new window", ip)
-                        session.flush()
-                        return
-
-                    if count >= self._max:
-                        retry_after = max(1, min(window - elapsed, window))
-                        self._log_limited(
-                            ip, count, window_start, now, retry_after
-                        )
-                        raise RateLimitExceeded(retry_after=retry_after)
-
-                    row.count = count + 1
-                    session.flush()
-                    logger.info(
-                        "Rate limit ok: ip=%s count=%d/%d window=%ds",
-                        ip, count + 1, self._max, window,
-                    )
-                    return
+                    retry_after = max(1, min(window - elapsed, window))
+                    self._log_limited(ip, count, window_start, now, retry_after)
+                    raise RateLimitExceeded(retry_after=retry_after)
             except RateLimitExceeded:
                 raise
             except IntegrityError:
@@ -142,32 +149,24 @@ class RateLimiter:
     def _apply_limit(
         self, ip: str, count: int, window_start: int, now: int
     ) -> tuple[int, int]:
-        if not self._is_valid_window_start(window_start, now):
+        if not self._window_is_active(window_start, now, self._window):
             return 1, now
-
-        elapsed = now - window_start
-        if elapsed >= self._window:
-            return 1, now
-
         if count >= self._max:
-            retry_after = max(1, min(int(self._window - elapsed), self._window))
+            elapsed = now - window_start
+            retry_after = max(1, min(self._window - elapsed, self._window))
             self._log_limited(ip, count, window_start, now, retry_after)
             raise RateLimitExceeded(retry_after=retry_after)
-
         return count + 1, window_start
 
     def _check_and_increment_json(self, ip: str) -> None:
         data = self._load_json()
         now = int(time.time())
-
         record = data.get(ip, {"count": 0, "window_start": now})
         count = int(record.get("count", 0))
         window_start = self._as_ts(record.get("window_start"))
         count, window_start = self._apply_limit(ip, count, window_start, now)
-
         data[ip] = {"count": count, "window_start": window_start}
         self._save_json(data)
-
         logger.info(
             "Rate limit ok (json): ip=%s count=%d/%d window=%ds",
             ip, count, self._max, self._window,
