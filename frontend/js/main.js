@@ -249,29 +249,6 @@ function showError(msg) {
   formError.hidden = false;
 }
 
-function cleanValidationMessage(msg) {
-  return String(msg)
-    .replace(/^Value error,\s*/i, '')
-    .replace(/^value is not a valid email address:\s*/i, '')
-    .trim();
-}
-
-function serverFieldError(fieldId, serverMessage) {
-  const el = document.getElementById('f-' + fieldId);
-  if (el && rules[fieldId]) {
-    const clientErr = rules[fieldId](el.value);
-    if (clientErr) return clientErr;
-  }
-  const fallbacks = {
-    name: 'validation.nameMin',
-    phone: 'validation.phoneIncomplete',
-    email: 'validation.emailInvalid',
-    comment: 'validation.commentMin',
-  };
-  if (fallbacks[fieldId]) return t(fallbacks[fieldId]);
-  return cleanValidationMessage(serverMessage);
-}
-
 form.addEventListener('submit', async e => {
   e.preventDefault();
   formError.hidden = true;
@@ -304,11 +281,8 @@ form.addEventListener('submit', async e => {
 
     if (res.ok && data.success) {
       showSuccess(data.ai_analysis?.auto_reply);
-    } else if (res.status === 422 && data.details) {
-      data.details.forEach(({ field, message }) => {
-        const id = field.replace(/\s.*/, '').toLowerCase();
-        if (rules[id]) setErr(id, serverFieldError(id, message));
-      });
+    } else if (res.status === 422) {
+      showError(data.error || t('errors.generic'));
     } else if (res.status === 429) {
       showError(data.error || t('errors.rateLimit'));
     } else if (res.status === 401) {

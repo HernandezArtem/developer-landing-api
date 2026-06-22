@@ -59,7 +59,7 @@
               "raw": "{\n  \"name\": \"X\",\n  \"phone\": \"abc\",\n  \"email\": \"not-an-email\",\n  \"comment\": \"hi\"\n}"
             },
             "url": "{{base_url}}/api/contact",
-            "description": "Ожидается HTTP 422 с деталями по полям."
+            "description": "Ожидается HTTP 422 без раскрытия списка полей."
           }
         }
       ]

@@ -54,7 +54,6 @@ async def validation_exception_handler(
         content={
             "success": False,
             "error": "Ошибка валидации данных",
-            "details": errors,
         },
     )
 
