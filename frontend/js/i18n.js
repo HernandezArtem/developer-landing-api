@@ -4,7 +4,7 @@ const I18N = {
       title: 'Бэкенд-сервис для лендинг-презентации разработчика',
       description: 'Backend-разработчик. Пишу REST API, проектирую архитектуру, интегрирую сервисы.',
     },
-    nav: { about: 'обо мне', stack: 'стек', projects: 'проекты', contact: 'связаться', menu: 'Меню' },
+    nav: { about: 'Обо мне', stack: 'Стек', projects: 'Проекты', contact: 'Связаться', menu: 'Меню' },
     hero: {
       badge: 'Открыт для проектов',
       greeting: 'Привет, я',
