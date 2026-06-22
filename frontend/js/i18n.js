@@ -91,7 +91,7 @@ const I18N = {
       title: 'Developer Landing API — Portfolio',
       description: 'Backend developer. REST APIs, architecture, service integrations.',
     },
-    nav: { about: 'about', stack: 'stack', projects: 'projects', contact: 'contact', menu: 'Menu' },
+    nav: { about: 'About', stack: 'Stack', projects: 'Projects', contact: 'Contact', menu: 'Menu' },
     hero: {
       badge: 'Open to projects',
       greeting: 'Hi, I\'m',
