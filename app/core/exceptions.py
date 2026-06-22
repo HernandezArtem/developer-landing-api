@@ -24,6 +24,10 @@ class EmailServiceError(Exception):
     """Raised when email sending fails."""
 
 
+class InvalidAPIKey(Exception):
+    """Raised when X-API-Key is missing or wrong."""
+
+
 # ── Exception handlers ────────────────────────────────────────
 
 _VALIDATION_MSG_PREFIXES = re.compile(
@@ -67,6 +71,18 @@ async def rate_limit_exception_handler(
             "success": False,
             "error": "Слишком много запросов. Попробуйте через 15 минут.",
             "retry_after_seconds": exc.retry_after,
+        },
+    )
+
+
+async def invalid_api_key_handler(request: Request, exc: InvalidAPIKey) -> JSONResponse:
+    client_ip = get_client_ip(request)
+    logger.warning("Invalid API key from IP %s on %s", client_ip, request.url.path)
+    return JSONResponse(
+        status_code=401,
+        content={
+            "success": False,
+            "error": "Неверный или отсутствующий API-ключ.",
         },
     )
 

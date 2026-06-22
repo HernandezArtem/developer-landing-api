@@ -1,5 +1,12 @@
 const API = '/api';
 
+function contactHeaders() {
+  const headers = { 'Content-Type': 'application/json' };
+  const key = window.SITE_CONFIG?.contactApiKey;
+  if (key) headers['X-API-Key'] = key;
+  return headers;
+}
+
 /* ── Scroll reveal ───────────────────────────────────── */
 const revealEls = document.querySelectorAll('.reveal');
 if (revealEls.length) {
@@ -290,7 +297,7 @@ form.addEventListener('submit', async e => {
   try {
     const res  = await fetch(API + '/contact', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: contactHeaders(),
       body: JSON.stringify(body),
     });
     const data = await res.json();
@@ -304,6 +311,8 @@ form.addEventListener('submit', async e => {
       });
     } else if (res.status === 429) {
       showError(data.error || t('errors.rateLimit'));
+    } else if (res.status === 401) {
+      showError(data.error || t('errors.unauthorized'));
     } else {
       showError(data.error || t('errors.generic'));
     }
