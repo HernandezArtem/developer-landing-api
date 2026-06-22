@@ -72,6 +72,9 @@ async def submit_contact(
     except RateLimitExceeded:
         _metrics.increment_rate_limited()
         raise
+    except Exception as e:
+        logger.error("Rate limit storage failed for ip=%s: %s", client_ip, e)
+        raise
 
     request_id = str(uuid.uuid4())
     _metrics.increment_total()

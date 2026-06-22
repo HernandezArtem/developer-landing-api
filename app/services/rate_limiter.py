@@ -2,8 +2,7 @@ import json
 import logging
 import time
 
-from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.core.config import settings
 from app.core.exceptions import RateLimitExceeded
@@ -38,7 +37,6 @@ class RateLimiter:
             ts = int(float(value))
         except (TypeError, ValueError):
             return 0
-        # Guard against ms timestamps or corrupt values.
         if ts > 2_000_000_000_000:
             ts //= 1000
         return ts
@@ -52,10 +50,7 @@ class RateLimiter:
         self._check_and_increment_json(ip)
 
     def _check_and_increment_mysql(self, ip: str) -> None:
-        """
-        Per-IP fixed window in MySQL.
-        Integer unix timestamps only — avoids FLOAT/DATETIME drift in phpMyAdmin.
-        """
+        """Fixed window per IP in MySQL — simple ORM read/update/commit."""
         now = int(time.time())
         window = int(self._window)
 
@@ -68,6 +63,7 @@ class RateLimiter:
                         session.add(
                             RateLimitModel(ip=ip, count=1, window_start=now)
                         )
+                        session.flush()
                         logger.info(
                             "Rate limit ok: ip=%s count=1/%d window=%ds (new)",
                             ip, self._max, self._window,
@@ -76,29 +72,23 @@ class RateLimiter:
 
                     count = int(row.count or 0)
                     window_start = self._as_ts(row.window_start)
-
-                    # Broken row in DB — repair anchor, keep count.
                     if window_start <= 0:
+                        row.window_start = now
                         window_start = now
-                        row.window_start = window_start
-                        logger.warning(
-                            "Rate limit repaired window_start for ip=%s (was 0)",
-                            ip,
-                        )
+                        session.flush()
 
                     elapsed = now - window_start
 
-                    # New window only when time really passed.
                     if elapsed >= window:
                         row.count = 1
                         row.window_start = now
+                        session.flush()
                         logger.info(
                             "Rate limit ok: ip=%s count=1/%d window=%ds (new window)",
                             ip, self._max, self._window,
                         )
                         return
 
-                    # Limit reached — block first, never reset to 1 here.
                     if count >= self._max:
                         retry_after = max(1, window - elapsed)
                         self._log_limited(
@@ -106,38 +96,22 @@ class RateLimiter:
                         )
                         raise RateLimitExceeded(retry_after=retry_after)
 
-                    updated = session.execute(
-                        text(
-                            """
-                            UPDATE rate_limits
-                            SET count = count + 1
-                            WHERE ip = :ip
-                              AND window_start = :window_start
-                              AND count = :count
-                              AND count < :max
-                            """
-                        ),
-                        {
-                            "ip": ip,
-                            "window_start": window_start,
-                            "count": count,
-                            "max": self._max,
-                        },
-                    ).rowcount
-
-                    if updated == 1:
-                        logger.info(
-                            "Rate limit ok: ip=%s count=%d/%d window=%ds",
-                            ip, count + 1, self._max, self._window,
-                        )
-                        return
-
-                    logger.debug(
-                        "Rate limit race for ip=%s count=%d, retry %d/3",
-                        ip, count, attempt + 1,
+                    row.count = count + 1
+                    session.flush()
+                    logger.info(
+                        "Rate limit ok: ip=%s count=%d/%d window=%ds",
+                        ip, count + 1, self._max, self._window,
                     )
+                    return
+            except RateLimitExceeded:
+                raise
             except IntegrityError:
-                logger.debug("Rate limit insert race for %s, retrying", ip)
+                logger.debug(
+                    "Rate limit insert race for ip=%s, retry %d/3", ip, attempt + 1
+                )
+            except SQLAlchemyError as e:
+                logger.error("Rate limit MySQL error for ip=%s: %s", ip, e)
+                raise
 
         raise RuntimeError(f"rate limit could not update row for ip={ip}")
 
