@@ -2,8 +2,6 @@ import json
 import logging
 import time
 
-from sqlalchemy import select
-
 from app.core.config import settings
 from app.core.exceptions import RateLimitExceeded
 from app.db.models import RateLimit as RateLimitModel
@@ -19,8 +17,8 @@ class RateLimiter:
     """
 
     def __init__(self) -> None:
-        self._max = settings.RATE_LIMIT_REQUESTS
-        self._window = settings.RATE_LIMIT_WINDOW_SECONDS
+        self._max = max(1, settings.RATE_LIMIT_REQUESTS)
+        self._window = max(60, settings.RATE_LIMIT_WINDOW_SECONDS)
         self._file = settings.RATE_LIMITS_FILE
         if not settings.use_mysql:
             self._ensure_file()
@@ -29,9 +27,19 @@ class RateLimiter:
         if not self._file.exists():
             self._file.write_text("{}", encoding="utf-8")
 
+    @staticmethod
+    def _as_ts(value: float | int | None) -> float:
+        if value is None:
+            return 0.0
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
+
     def _window_expired(self, now: float, window_start: float) -> bool:
+        if window_start <= 0:
+            return True
         elapsed = now - window_start
-        # elapsed < 0 — сбой часов или битые данные; сбрасываем окно
         return elapsed < 0 or elapsed >= self._window
 
     def _reset_record(self, now: float) -> tuple[int, float]:
@@ -45,72 +53,69 @@ class RateLimiter:
             except RateLimitExceeded:
                 raise
             except Exception as e:
-                # На prod не читаем устаревший JSON — иначе лимит «залипает» навсегда
-                logger.error("Rate limit MySQL failed for %s — request allowed: %s", ip, e)
-                return
+                logger.error(
+                    "Rate limit MySQL failed for %s — fallback to JSON: %s", ip, e
+                )
 
         self._ensure_file()
         self._check_and_increment_json(ip)
 
+    def _apply_limit(
+        self, ip: str, count: int, window_start: float, now: float
+    ) -> tuple[int, float]:
+        window_start = self._as_ts(window_start)
+
+        if self._window_expired(now, window_start):
+            return self._reset_record(now)
+
+        if count >= self._max:
+            elapsed = now - window_start
+            retry_after = int(self._window - elapsed)
+            if retry_after <= 0:
+                return self._reset_record(now)
+            self._log_limited(ip, count, window_start, now, retry_after)
+            raise RateLimitExceeded(retry_after=retry_after)
+
+        return count + 1, window_start
+
     def _check_and_increment_mysql(self, ip: str) -> None:
         now = time.time()
         with db_session() as session:
-            row = session.execute(
-                select(RateLimitModel)
-                .where(RateLimitModel.ip == ip)
-                .with_for_update()
-            ).scalar_one_or_none()
+            row = session.get(RateLimitModel, ip)
+            if row is None:
+                count, window_start = 0, now
+            else:
+                count, window_start = row.count, self._as_ts(row.window_start)
+
+            count, window_start = self._apply_limit(ip, count, window_start, now)
 
             if row is None:
-                count, window_start = self._reset_record(now)
                 row = RateLimitModel(ip=ip, count=count, window_start=window_start)
                 session.add(row)
             else:
-                count, window_start = row.count, row.window_start
-                if self._window_expired(now, window_start):
-                    count, window_start = self._reset_record(now)
-                    row.count = count
-                    row.window_start = window_start
+                row.count = count
+                row.window_start = window_start
 
-            if count >= self._max:
-                elapsed = now - window_start
-                retry_after = int(self._window - elapsed)
-                if retry_after <= 0:
-                    count, window_start = self._reset_record(now)
-                    row.count = count
-                    row.window_start = window_start
-                else:
-                    self._log_limited(ip, count, window_start, now, retry_after)
-                    raise RateLimitExceeded(retry_after=retry_after)
-
-            row.count = count + 1
+        logger.info(
+            "Rate limit ok: ip=%s count=%d/%d window=%ds",
+            ip, count, self._max, self._window,
+        )
 
     def _check_and_increment_json(self, ip: str) -> None:
         data = self._load_json()
         now = time.time()
 
         record = data.get(ip, {"count": 0, "window_start": now})
-        count, window_start = record["count"], record["window_start"]
+        count, window_start = record["count"], self._as_ts(record.get("window_start"))
+        count, window_start = self._apply_limit(ip, count, window_start, now)
 
-        if self._window_expired(now, window_start):
-            count, window_start = self._reset_record(now)
-
-        if count >= self._max:
-            elapsed = now - window_start
-            retry_after = int(self._window - elapsed)
-            if retry_after <= 0:
-                count, window_start = self._reset_record(now)
-            else:
-                self._log_limited(ip, count, window_start, now, retry_after)
-                raise RateLimitExceeded(retry_after=retry_after)
-
-        count += 1
         data[ip] = {"count": count, "window_start": window_start}
-        data = {
-            k: v for k, v in data.items()
-            if now - v["window_start"] < self._window
-        }
         self._save_json(data)
+
+        logger.info(
+            "Rate limit ok (json): ip=%s count=%d/%d window=%ds",
+            ip, count, self._max, self._window,
+        )
 
     def _log_limited(
         self, ip: str, count: int, window_start: float, now: float, retry_after: int
