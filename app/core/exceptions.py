@@ -59,13 +59,19 @@ async def rate_limit_exception_handler(
 ) -> JSONResponse:
     client_ip = get_client_ip(request)
     logger.warning("Rate limit exceeded for IP %s", client_ip)
+    seconds = max(1, exc.retry_after)
+    if seconds >= 60:
+        minutes = max(1, round(seconds / 60))
+        hint = f"Попробуйте через {minutes} мин."
+    else:
+        hint = f"Попробуйте через {seconds} сек."
     return JSONResponse(
         status_code=429,
-        headers={"Retry-After": str(exc.retry_after)},
+        headers={"Retry-After": str(seconds)},
         content={
             "success": False,
-            "error": "Слишком много запросов. Попробуйте через 15 минут.",
-            "retry_after_seconds": exc.retry_after,
+            "error": f"Слишком много запросов. {hint}",
+            "retry_after_seconds": seconds,
         },
     )
 

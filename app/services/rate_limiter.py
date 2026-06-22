@@ -11,20 +11,30 @@ from app.db.session import db_session
 
 logger = logging.getLogger(__name__)
 
+# Unix time before ~2001 — corrupt row from FLOAT/NULL in old schema.
+_MIN_VALID_TS = 1_000_000_000
+
 
 class RateLimiter:
     """
     Rate limiter backed by MySQL or a JSON file.
-    Fixed window per IP: N requests per window (default 5 / 15 min).
-    After the window ends the counter resets and the IP can send again.
+    Fixed window per IP: N requests per window.
+    When the window ends the counter resets and the IP can send again.
     """
 
     def __init__(self) -> None:
-        self._max = max(1, settings.RATE_LIMIT_REQUESTS)
-        self._window = max(60, settings.RATE_LIMIT_WINDOW_SECONDS)
         self._file = settings.RATE_LIMITS_FILE
         if not settings.use_mysql:
             self._ensure_file()
+
+    @property
+    def _max(self) -> int:
+        return max(1, settings.RATE_LIMIT_REQUESTS)
+
+    @property
+    def _window(self) -> int:
+        # Allow 30s minimum so you can test quickly via .env
+        return max(30, settings.RATE_LIMIT_WINDOW_SECONDS)
 
     def _ensure_file(self) -> None:
         if not self._file.exists():
@@ -41,6 +51,10 @@ class RateLimiter:
         if ts > 2_000_000_000_000:
             ts //= 1000
         return ts
+
+    @staticmethod
+    def _is_valid_window_start(window_start: int) -> bool:
+        return window_start >= _MIN_VALID_TS
 
     def _start_new_window(self, row: RateLimitModel, now: int, reason: str, ip: str) -> None:
         row.count = 1
@@ -61,7 +75,7 @@ class RateLimiter:
     def _check_and_increment_mysql(self, ip: str) -> None:
         """Fixed window per IP in MySQL."""
         now = int(time.time())
-        window = int(self._window)
+        window = self._window
 
         for attempt in range(3):
             try:
@@ -75,23 +89,20 @@ class RateLimiter:
                         session.flush()
                         logger.info(
                             "Rate limit ok: ip=%s count=1/%d window=%ds (new)",
-                            ip, self._max, self._window,
+                            ip, self._max, window,
                         )
                         return
 
                     count = int(row.count or 0)
                     window_start = self._as_ts(row.window_start)
 
-                    # Broken row (window_start=0) — full reset, not "repair date + keep count".
-                    # Otherwise count stays at max, elapsed=0, block forever.
-                    if window_start <= 0:
+                    if not self._is_valid_window_start(window_start):
                         self._start_new_window(row, now, "repaired", ip)
                         session.flush()
                         return
 
                     elapsed = now - window_start
 
-                    # 15 minutes passed — new window, user can write again.
                     if elapsed >= window:
                         self._start_new_window(row, now, "new window", ip)
                         session.flush()
@@ -108,7 +119,7 @@ class RateLimiter:
                     session.flush()
                     logger.info(
                         "Rate limit ok: ip=%s count=%d/%d window=%ds",
-                        ip, count + 1, self._max, self._window,
+                        ip, count + 1, self._max, window,
                     )
                     return
             except RateLimitExceeded:
@@ -126,7 +137,7 @@ class RateLimiter:
     def _apply_limit(
         self, ip: str, count: int, window_start: int, now: int
     ) -> tuple[int, int]:
-        if window_start <= 0:
+        if not self._is_valid_window_start(window_start):
             return 1, now
 
         elapsed = now - window_start
