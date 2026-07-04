@@ -32,7 +32,8 @@ const I18N = {
     projects: {
       eyebrow: '/// Проекты',
       title: 'Проекты',
-      subtitle: 'Три проекта, где я принимал полноценное участие в разработке:',
+      subtitle: 'Четыре проекта, где я принимал полноценное участие в разработке:',
+      viewProject: 'Перейти к проекту',
       p1title: 'CRM для медицинской клиники',
       p1text: 'REST API для записи пациентов, история визитов, JWT-авторизация, разграничение ролей. 60+ эндпоинтов, интеграция с расписанием врачей.',
       p1note: '<span class="mono">// Что было сложно:</span> конкурентные записи к одному врачу — решили через SELECT FOR UPDATE + advisory locks.',
@@ -40,6 +41,8 @@ const I18N = {
       p2text: 'Сайт на 1С-Битрикс: каталог объектов на продажу и аренду, интеграция с самописной CRM заказчика.',
       p3title: 'Telegram-бот для VPS',
       p3text: 'Приём оплаты, уведомления, интеграция с учётной системой через REST.',
+      p4title: 'Интернет-магазин RESILIX',
+      p4text: 'Каталог роутеров, корзина, избранное, оформление заказа, оплата и доставка через СДЭК. Личный кабинет и промокоды.',
     },
     contact: {
       eyebrow: '/// Связь',
@@ -119,7 +122,8 @@ const I18N = {
     projects: {
       eyebrow: '/// Projects',
       title: 'Projects',
-      subtitle: 'Three projects where I had a full development role:',
+      subtitle: 'Four projects where I had a full development role:',
+      viewProject: 'View project',
       p1title: 'Medical clinic CRM',
       p1text: 'REST API for appointments, visit history, JWT auth, role-based access. 60+ endpoints, doctor schedule integration.',
       p1note: '<span class="mono">// Hard part:</span> concurrent bookings for one doctor — solved with SELECT FOR UPDATE + advisory locks.',
@@ -127,6 +131,8 @@ const I18N = {
       p2text: '1C-Bitrix site with sale/rent listings and integration with the client\'s custom CRM.',
       p3title: 'Telegram bot for VPS',
       p3text: 'Payments, notifications, integration with billing via REST.',
+      p4title: 'RESILIX online store',
+      p4text: 'Router catalog, cart, favorites, checkout, payment and CDEK delivery. User account and promo codes.',
     },
     contact: {
       eyebrow: '/// Contact',
