@@ -929,24 +929,11 @@ body.sport-mode .project-card h3 {
   color: var(--t1);
 }
 .project-card p { font-size: .9rem; color: var(--t2); line-height: 1.65; flex-grow: 1; }
+.project-card p:has(+ .project-link) { flex-grow: 0; }
 .project-link {
-  margin-top: 18px;
+  margin-top: 28px;
   align-self: flex-start;
-}
-.project-card-blue .project-link:hover {
-  border-color: var(--m-blue);
-  color: var(--m-blue);
-  background: rgba(0, 114, 198, 0.06);
-}
-.project-card-velvet .project-link:hover {
-  border-color: var(--m-dark);
-  color: var(--m-dark);
-  background: rgba(30, 59, 123, 0.06);
-}
-.project-card-red .project-link:hover {
-  border-color: var(--m-red);
-  color: var(--m-red);
-  background: rgba(224, 25, 33, 0.06);
+  text-decoration: none;
 }
 .project-note {
   margin-top: 14px !important;
