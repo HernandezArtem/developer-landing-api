@@ -25,7 +25,7 @@ Postman: импортируйте `postman/Developer-Landing-API.postman_collect
 
 | Слой | Технология |
 |---|---|
-| Backend | Python 3.11, FastAPI, Pydantic v2 |
+| Backend | Python 3.11+, FastAPI, Pydantic v2 |
 | БД (prod) | MySQL (Beget Cloud DB), SQLAlchemy |
 | Хранение (local) | JSON-файлы в `data/` |
 | AI | OpenRouter API (Mistral Nemo) |
@@ -48,10 +48,12 @@ cd developer-landing-api
 
 ### 2. Виртуальное окружение и зависимости
 
+Нужен Python **3.11+**. Зависимости ставятся **только в venv** — системный `python` их не видит.
+
 ```bash
 python -m venv venv
 
-# Windows
+# Windows (PowerShell / cmd)
 venv\Scripts\activate
 
 # Linux / macOS
@@ -60,12 +62,19 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+Проверка: `python -m uvicorn --version` — должна сработать **после** активации venv.
+
 ### 3. Переменные окружения
 
 ```bash
+# Linux / macOS
 cp .env.example .env
-# Отредактировать .env — вставить реальные ключи
+
+# Windows (cmd)
+copy .env.example .env
 ```
+
+Отредактируйте `.env` — вставьте реальные ключи (для просмотра лендинга без AI/SMTP можно оставить заглушки).
 
 | Переменная | Описание |
 |---|---|
@@ -73,13 +82,31 @@ cp .env.example .env
 | `OPENROUTER_API_KEY` | Ключ OpenRouter (openrouter.ai) |
 | `OPENROUTER_MODEL` | По умолчанию `mistralai/mistral-nemo` |
 | `DATABASE_URL` | **Локально оставить пустым** — данные в `data/*.json`. На VPS — строка MySQL (спецсимволы в пароле URL-кодируйте, `&` → `%26`) |
-| `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_WINDOW_SECONDS` | Лимит запросов с IP (по умолчанию **5 / 120 сек**; для продакшена часто ставят `900` = 15 мин) |
+| `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_WINDOW_SECONDS` | Лимит запросов с IP (по умолчанию **5 / 900 сек**) |
 
 ### 4. Запуск локально
+
+**Вариант A — скрипт (Windows, venv активировать не нужно):**
+
+```bat
+run.bat
+```
+
+или в PowerShell:
+
+```powershell
+.\run.ps1
+```
+
+**Вариант B — вручную (после `venv\Scripts\activate` или `source venv/bin/activate`):**
 
 ```bash
 python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
+
+> **Частая ошибка:** `No module named uvicorn` — вы запустили команду **без** активированного venv (системный Python). Используйте `run.bat` / `run.ps1` или сначала `venv\Scripts\activate`.
+
+После старта:
 
 - Лендинг: http://localhost:8000
 - Swagger: http://localhost:8000/docs
