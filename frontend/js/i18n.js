@@ -27,6 +27,7 @@ const I18N = {
       bitrix: 'Создание сайтов, интеграции с CRM, кастомные модули',
       pg: 'SQL вручную, EXPLAIN ANALYZE — знакомый',
       mysql: 'SQLAlchemy, схемы и индексы — в продакшене на этом проекте',
+      node: 'Express, TypeScript, npm — API и интеграции',
       api: 'Проектирование, документация, Swagger — основной фокус',
     },
     projects: {
@@ -117,6 +118,7 @@ const I18N = {
       bitrix: 'Sites, CRM integrations, custom modules',
       pg: 'Hand-written SQL, EXPLAIN ANALYZE',
       mysql: 'SQLAlchemy, schemas and indexes — production on this project',
+      node: 'Express, TypeScript, npm — APIs and integrations',
       api: 'Design, documentation, Swagger — main focus',
     },
     projects: {
