@@ -929,9 +929,12 @@ body.sport-mode .project-card h3 {
   color: var(--t1);
 }
 .project-card p { font-size: .9rem; color: var(--t2); line-height: 1.65; flex-grow: 1; }
-.project-card p:has(+ .project-link) { flex-grow: 0; }
+.project-card p:has(+ .project-link) {
+  flex-grow: 0;
+  margin-bottom: 12px;
+}
 .project-link {
-  margin-top: 28px;
+  margin-top: 36px;
   align-self: flex-start;
   text-decoration: none;
 }
