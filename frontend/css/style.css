@@ -839,10 +839,12 @@ body.sport-mode .project-card h3 {
 .projects { 
   display: grid; 
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
-  gap: 24px; 
+  gap: 24px;
+  align-items: stretch;
 }
 .project-card {
   padding: 28px;
+  height: 100%;
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -928,18 +930,18 @@ body.sport-mode .project-card h3 {
   font-size: 1.15rem; font-weight: 700; margin-bottom: 10px; letter-spacing: -.015em;
   color: var(--t1);
 }
-.project-card p { font-size: .9rem; color: var(--t2); line-height: 1.65; flex-grow: 1; }
-.project-card p:has(+ .project-link) {
-  flex-grow: 0;
-  margin-bottom: 12px;
-}
+.project-card p { font-size: .9rem; color: var(--t2); line-height: 1.65; }
+.project-card > p:not(.project-note) { flex-grow: 1; }
 .project-link {
-  margin-top: 36px;
+  margin-top: auto;
+  padding-top: 28px;
   align-self: flex-start;
+  flex-shrink: 0;
   text-decoration: none;
 }
 .project-note {
   margin-top: 14px !important;
+  flex-grow: 0 !important;
   font-size: .8rem !important;
   color: var(--t3) !important;
 }
