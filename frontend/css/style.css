@@ -898,17 +898,8 @@ body.sport-mode .project-card h3 {
 .project-card-red:hover { border-color: var(--m-red); }
 .project-line { display: none; }
 .project-top {
-  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; width: 100%;
+  display: flex; align-items: center; flex-wrap: wrap; width: 100%;
 }
-.project-num {
-  font-family: var(--mono); font-size: .8rem; font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 20px;
-  background: rgba(0,0,0,0.04);
-}
-.project-card-blue .project-num  { color: var(--m-blue); background: rgba(0,114,198,.08); }
-.project-card-velvet .project-num { color: var(--m-dark); background: rgba(30,59,123,.08); }
-.project-card-red .project-num   { color: var(--m-red);  background: rgba(224,25,33,.08); }
 .tags { display: flex; gap: 8px; flex-wrap: wrap; }
 .tag {
   padding: 3px 12px; border-radius: 20px; font-size: .75rem; font-weight: 500;
