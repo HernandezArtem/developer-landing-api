@@ -23,6 +23,11 @@
   --accent:   var(--m-blue);
   --accent-2: var(--m-red);
   --grad:     var(--m-stripes-diag);
+  --grad-btn: linear-gradient(90deg, var(--m-blue) 0%, var(--m-dark) 55%, var(--m-red) 100%);
+  --btn-fill-bg: #f3f6fb;
+  --btn-fill-border: rgba(30, 59, 123, 0.22);
+  --btn-fill-shadow: 0 1px 4px rgba(30, 59, 123, 0.08);
+  --tr-btn: 0.38s cubic-bezier(0.4, 0, 0.2, 1);
 
   --t1: #111827;
   --t2: #4b5563;
@@ -219,33 +224,56 @@ html::-webkit-scrollbar-thumb:active {
 .nav-links a:not(.nav-cta):hover::after { width: 100%; }
 .nav-cta {
   padding: 12px 24px;
-  border: none;
+  border: 1px solid var(--btn-fill-border);
   border-radius: var(--r);
   font-size: .85rem !important;
   font-weight: 700;
-  color: #fff !important;
-  background: var(--m-stripes-diag);
-  box-shadow: 0 6px 24px rgba(0, 114, 198, 0.25);
+  color: var(--t1) !important;
+  background: var(--btn-fill-bg);
+  box-shadow: var(--btn-fill-shadow);
   letter-spacing: .02em;
   position: relative;
   overflow: hidden;
-  transition: transform var(--tr), box-shadow var(--tr) !important;
+  isolation: isolate;
+  transition:
+    color var(--tr-btn),
+    border-color var(--tr-btn),
+    background-color var(--tr-btn),
+    transform var(--tr),
+    box-shadow var(--tr-btn) !important;
+}
+.nav-cta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--grad-btn);
+  opacity: 0;
+  transition: opacity var(--tr-btn);
+  z-index: -1;
 }
 .nav-cta::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
   transform: translateX(-100%);
-  transition: transform 0.5s ease;
+  transition: transform 0.55s ease, opacity var(--tr-btn);
   pointer-events: none;
+  opacity: 0;
+  z-index: 1;
 }
-.nav-cta:hover::after { transform: translateX(100%); }
+.nav-cta:hover::before { opacity: 1; }
+.nav-cta:hover::after {
+  opacity: 1;
+  transform: translateX(100%);
+}
 .nav-cta:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 32px rgba(30, 59, 123, 0.3);
+  box-shadow: 0 10px 32px rgba(30, 59, 123, 0.28);
   border-color: transparent !important;
-  background: var(--m-stripes-diag) !important;
+  background-color: transparent !important;
+  color: #fff !important;
 }
 .burger { display: none; flex-direction: column; gap: 5px; padding: 4px; }
 .burger span { display: block; width: 22px; height: 2px; background: var(--t2); border-radius: 2px; transition: var(--tr); }
@@ -423,14 +451,46 @@ h1 {
   transition: all var(--tr); white-space: nowrap;
 }
 .btn-primary {
-  background: var(--grad); color: #fff;
-  border: none;
-  box-shadow: 0 4px 20px rgba(0, 114, 198, 0.2);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background-color: var(--btn-fill-bg);
+  color: var(--t1);
+  border: 1px solid var(--btn-fill-border);
+  box-shadow: var(--btn-fill-shadow);
+  transition:
+    color var(--tr-btn),
+    border-color var(--tr-btn),
+    background-color var(--tr-btn),
+    box-shadow var(--tr-btn),
+    transform var(--tr);
+}
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--grad-btn);
+  opacity: 0;
+  transition: opacity var(--tr-btn);
+  z-index: -1;
 }
 .btn-primary:hover {
+  background-color: transparent;
+  color: #fff;
+  border-color: transparent;
   transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(0, 114, 198, 0.35);
+  box-shadow: 0 8px 28px rgba(0, 114, 198, 0.32);
 }
+.btn-primary:hover::before { opacity: 1; }
+.btn-primary:disabled:hover {
+  background-color: var(--btn-fill-bg);
+  color: var(--t1);
+  border-color: var(--btn-fill-border);
+  box-shadow: var(--btn-fill-shadow);
+  transform: none;
+}
+.btn-primary:disabled:hover::before { opacity: 0; }
 .btn-outline {
   background: transparent; color: var(--t1);
   border: 1px solid var(--border-h);
@@ -1182,30 +1242,10 @@ body.sport-mode .project-card h3 {
 .ferr { font-size: .75rem; color: var(--m-red); margin-top: 5px; min-height: 16px; display: block; }
 
 #submitBtn {
-  background: var(--m-stripes-diag);
-  color: #fff;
-  border: none;
   font-weight: 700;
   font-size: .92rem;
   padding: 15px 28px;
-  border-radius: var(--r);
-  box-shadow: 0 6px 24px rgba(0, 114, 198, 0.25);
   letter-spacing: .02em;
-  position: relative;
-  overflow: hidden;
-}
-#submitBtn::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
-  transform: translateX(-100%);
-  transition: transform 0.5s ease;
-}
-#submitBtn:hover::after { transform: translateX(100%); }
-#submitBtn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 32px rgba(30, 59, 123, 0.3);
 }
 
 .btn-full { margin-top: 6px; position: relative; overflow: hidden; }
