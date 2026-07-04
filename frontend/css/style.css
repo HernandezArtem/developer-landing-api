@@ -323,20 +323,33 @@ html::-webkit-scrollbar-thumb:active {
 .hero-badge {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 7px 16px; margin-bottom: 24px;
-  background: rgba(0, 114, 198, 0.07);
-  border: 1px solid rgba(0, 114, 198, 0.2);
-  border-radius: 24px; font-size: .8rem; color: var(--m-blue);
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  border-radius: 24px; font-size: .8rem; color: var(--green);
   font-weight: 600;
   width: fit-content;
+  text-decoration: none;
+  transition: background var(--tr), border-color var(--tr), transform var(--tr), box-shadow var(--tr);
+  animation: badgeGlow 2.4s ease-in-out infinite;
+}
+.hero-badge:hover {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.45);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.18);
 }
 .badge-dot {
-  width: 7px; height: 7px; border-radius: 50%; background: var(--m-blue);
-  box-shadow: 0 0 0 0 rgba(0, 114, 198, 0.4);
-  animation: pulse 2s ease-in-out infinite;
+  width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+  animation: badgeDotPulse 1.8s ease-in-out infinite;
 }
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 114, 198, 0.4); }
-  50%       { box-shadow: 0 0 0 6px rgba(0, 114, 198, 0); }
+@keyframes badgeDotPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); transform: scale(1); }
+  50%       { box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); transform: scale(1.15); }
+}
+@keyframes badgeGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  50%       { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12); }
 }
 
 h1 {
