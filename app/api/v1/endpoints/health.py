@@ -53,6 +53,7 @@ async def health_check() -> dict:
         "status": "ok",
         "version": settings.APP_VERSION,
         "ai_available": ai.is_available,
+        "ai_providers": ai.provider_names,
         "email_available": email_ok,
         "database_available": _check_database(),
         "storage": "mysql" if settings.use_mysql else "json",

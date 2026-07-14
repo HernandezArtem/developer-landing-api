@@ -4,7 +4,7 @@ Backend-сервис и одностраничный лендинг портфо
 
 **Production:** http://62.217.179.202  
 
-REST API с AI-анализом (Mistral Nemo через OpenRouter), email-уведомлениями (mail.ru), rate limiting и двойным хранением данных (MySQL на сервере / JSON локально). Фронтенд — RU/EN с переключателем языка.
+REST API с AI-анализом (Groq primary, OpenRouter fallback), email-уведомлениями (mail.ru), rate limiting и двойным хранением данных (MySQL на сервере / JSON локально). Фронтенд — RU/EN с переключателем языка.
 
 ## Для проверки (без установки)
 
@@ -28,7 +28,7 @@ Postman: импортируйте `postman/Developer-Landing-API.postman_collect
 | Backend | Python 3.11+, FastAPI, Pydantic v2 |
 | БД (prod) | MySQL (Beget Cloud DB), SQLAlchemy |
 | Хранение (local) | JSON-файлы в `data/` |
-| AI | OpenRouter API (Mistral Nemo) |
+| AI | Groq (primary) + OpenRouter fallback |
 | Email | mail.ru SMTP over SSL |
 | Frontend | HTML + Vanilla CSS + JavaScript + i18n |
 | Деплой | Beget VPS, nginx + gunicorn, GitHub Actions |
@@ -79,7 +79,9 @@ copy .env.example .env
 | Переменная | Описание |
 |---|---|
 | `SMTP_USER`, `SMTP_PASSWORD`, `OWNER_EMAIL` | Почта mail.ru |
-| `OPENROUTER_API_KEY` | Ключ OpenRouter (openrouter.ai) |
+| `GROQ_API_KEY` | Ключ Groq (console.groq.com) — **основной** AI |
+| `GROQ_MODEL` | По умолчанию `llama-3.1-8b-instant` |
+| `OPENROUTER_API_KEY` | Ключ OpenRouter — **запасной**, если Groq недоступен |
 | `OPENROUTER_MODEL` | По умолчанию `mistralai/mistral-nemo` |
 | `DATABASE_URL` | **Локально оставить пустым** — данные в `data/*.json`. На VPS — строка MySQL (спецсимволы в пароле URL-кодируйте, `&` → `%26`) |
 | `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_WINDOW_SECONDS` | Лимит запросов с IP (по умолчанию **5 / 900 сек**) |
@@ -136,14 +138,14 @@ Repositories / DB             app/repositories/  +  app/db/
 Хранение                    MySQL (prod)  |  data/*.json (local)
 ```
 
-### Почему FastAPI / OpenRouter / dual storage
+### Почему FastAPI / Groq / dual storage
 
 - **FastAPI** — async из коробки, автогенерация OpenAPI/Swagger, Pydantic v2 для валидации на границе API; типизация снижает количество runtime-ошибок.
-- **OpenRouter** — единый HTTP API к разным LLM без привязки к одному провайдеру; модель `mistralai/mistral-nemo` — быстрая и дешёвая для классификации + короткого автоответа.
+- **Groq + OpenRouter** — основной вызов через Groq (`llama-3.1-8b-instant`); если Groq недоступен — запасной OpenRouter (`mistralai/mistral-nemo`). Датацентровые IP (Beget) иногда блокируются Cloudflare у OpenRouter.
 - **Dual storage (MySQL + JSON)** — локально разработка без БД (`DATABASE_URL` пустой → `data/*.json`); на VPS тот же код пишет в MySQL Beget Cloud DB. Переключение только через `.env`.
 - **BackgroundTasks для SMTP** — AI ~5–8 с, SMTP ~10–15 с; письма уходят после HTTP 200, пользователь не ждёт почтовый сервер.
 - **Repository-слой** — `LogRepository` и `MetricsRepository` скрывают детали хранения; endpoint не знает, JSON это или MySQL.
-- **Graceful degradation** — при недоступности OpenRouter или SMTP сервис отвечает 200 с fallback-текстом, ошибки пишутся в лог.
+- **Graceful degradation** — при недоступности AI (оба провайдера) или SMTP сервис отвечает 200 с fallback-текстом, ошибки пишутся в лог.
 - **StaticFiles + API в одном процессе** — один gunicorn/uvicorn на VPS: лендинг на `/`, API на `/api/*`.
 
 ### Паттерны проектирования
@@ -320,7 +322,7 @@ curl http://localhost:8000/api/metrics
 
 ## AI-интеграция
 
-**Провайдер:** OpenRouter · **Модель:** `mistralai/mistral-nemo`
+**Провайдер:** Groq (primary) → OpenRouter (fallback) · **Модели:** `llama-3.1-8b-instant` / `mistralai/mistral-nemo`
 
 1. Тональность: `positive` / `neutral` / `negative`
 2. Категория: `project_inquiry` / `job_offer` / `consultation` / `other`
@@ -329,7 +331,7 @@ curl http://localhost:8000/api/metrics
 **Дополнительно:**
 - Casual/offtopic («привет как дела») — шаблонный ответ с предложением описать проект (`app/services/offtopic.py`)
 - При generic-ответе модели — повторный запрос с уточнённым промптом
-- Если OpenRouter недоступен — bilingual fallback, `ai_available: false`
+- Если оба провайдера недоступны — bilingual fallback, `ai_available: false`
 
 SMTP вынесен в `BackgroundTasks` — ответ формы ~5–8 с вместо ~20 с.
 

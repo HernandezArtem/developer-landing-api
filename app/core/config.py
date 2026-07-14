@@ -36,7 +36,12 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     OWNER_EMAIL: str = ""
 
-    # OpenRouter AI (Mistral Nemo)
+    # Groq AI (primary) — OpenAI-compatible API
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "llama-3.1-8b-instant"
+    GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
+
+    # OpenRouter AI (fallback, Mistral Nemo)
     OPENROUTER_API_KEY: str = Field(
         default="",
         validation_alias=AliasChoices("OPENROUTER_API_KEY", "MISTRAL_API_KEY"),

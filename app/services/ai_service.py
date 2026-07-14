@@ -193,23 +193,46 @@ def _fallback_analysis(name: str, reply_lang: str) -> AIAnalysis:
 
 
 class AIService:
-    """OpenRouter (Mistral Nemo): sentiment, classification, auto-reply."""
+    """Groq (primary) → OpenRouter fallback: sentiment, classification, auto-reply."""
 
     def __init__(self) -> None:
-        self._client: httpx.Client | None = None
-        if settings.OPENROUTER_API_KEY:
+        # (name, client, model)
+        self._providers: list[tuple[str, httpx.Client, str]] = []
+
+        if settings.GROQ_API_KEY:
             try:
-                self._client = httpx.Client(
-                    base_url=settings.OPENROUTER_BASE_URL,
+                client = httpx.Client(
+                    base_url=settings.GROQ_BASE_URL,
                     headers={
-                        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+                        "Authorization": f"Bearer {settings.GROQ_API_KEY}",
                         "Content-Type": "application/json",
                     },
                     timeout=settings.AI_TIMEOUT,
                     follow_redirects=True,
                 )
+                self._providers.append(("groq", client, settings.GROQ_MODEL))
+                logger.info("Groq AI client initialized (model: %s)", settings.GROQ_MODEL)
+            except Exception as e:
+                logger.error("Failed to initialize Groq client: %s", e)
+
+        if settings.OPENROUTER_API_KEY:
+            try:
+                client = httpx.Client(
+                    base_url=settings.OPENROUTER_BASE_URL,
+                    headers={
+                        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "http://62.217.179.202",
+                        "X-Title": "Developer Landing API",
+                    },
+                    timeout=settings.AI_TIMEOUT,
+                    follow_redirects=True,
+                )
+                self._providers.append(
+                    ("openrouter", client, settings.OPENROUTER_MODEL)
+                )
                 logger.info(
-                    "OpenRouter AI client initialized (model: %s)",
+                    "OpenRouter AI client initialized as fallback (model: %s)",
                     settings.OPENROUTER_MODEL,
                 )
             except Exception as e:
@@ -217,20 +240,37 @@ class AIService:
 
     @property
     def is_available(self) -> bool:
-        return self._client is not None
+        return bool(self._providers)
 
-    def _call_openrouter(self, prompt: str) -> str:
-        response = self._client.post(
-            "/chat/completions",
-            json={
-                "model": settings.OPENROUTER_MODEL,
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.35,
-                "max_tokens": 300,
-            },
-        )
-        response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"].strip()
+    @property
+    def provider_names(self) -> list[str]:
+        return [name for name, _, _ in self._providers]
+
+    def _call_llm(self, prompt: str) -> str:
+        if not self._providers:
+            raise RuntimeError("No AI providers configured")
+
+        last_error: Exception | None = None
+        for name, client, model in self._providers:
+            try:
+                response = client.post(
+                    "/chat/completions",
+                    json={
+                        "model": model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.35,
+                        "max_tokens": 300,
+                    },
+                )
+                response.raise_for_status()
+                content = response.json()["choices"][0]["message"]["content"].strip()
+                logger.info("AI reply via %s (%s)", name, model)
+                return content
+            except Exception as e:
+                last_error = e
+                logger.warning("AI provider %s failed: %s", name, e)
+
+        raise last_error or RuntimeError("All AI providers failed")
 
     def _parse_json_response(self, raw: str) -> dict:
         text = raw.strip()
@@ -254,7 +294,7 @@ class AIService:
             return auto_reply
         logger.info("Generic AI reply on detailed message — retrying with context prompt")
         try:
-            raw = self._call_openrouter(
+            raw = self._call_llm(
                 _RETRY_PROMPT.format(
                     language=_language_label(reply_lang),
                     name=name,
@@ -300,14 +340,14 @@ class AIService:
                 ai_available=True,
             )
 
-        if not self._client:
-            logger.warning("OpenRouter unavailable — using fallback AI analysis")
+        if not self._providers:
+            logger.warning("No AI providers configured — using fallback AI analysis")
             return _fallback_analysis(name, reply_lang)
 
         raw = ""
 
         try:
-            raw = self._call_openrouter(
+            raw = self._call_llm(
                 _PROMPT.format(
                     language=_language_label(reply_lang),
                     name=name,
@@ -342,11 +382,11 @@ class AIService:
             )
 
         except json.JSONDecodeError:
-            logger.error("OpenRouter returned non-JSON: %s", raw[:300])
+            logger.error("AI returned non-JSON: %s", raw[:300])
             return _fallback_analysis(name, reply_lang)
         except ValueError as e:
-            logger.error("OpenRouter returned invalid enum value: %s", e)
+            logger.error("AI returned invalid enum value: %s", e)
             return _fallback_analysis(name, reply_lang)
         except Exception as e:
-            logger.error("OpenRouter API error: %s", e)
+            logger.error("AI API error: %s", e)
             return _fallback_analysis(name, reply_lang)
