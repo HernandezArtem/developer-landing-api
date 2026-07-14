@@ -36,10 +36,10 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     OWNER_EMAIL: str = ""
 
-    # Groq AI (primary) — OpenAI-compatible API
-    GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "llama-3.1-8b-instant"
-    GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
+    # DeepSeek AI (primary) — OpenAI-compatible API
+    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_MODEL: str = "deepseek-chat"
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
 
     # OpenRouter AI (fallback, Mistral Nemo)
     OPENROUTER_API_KEY: str = Field(

@@ -193,27 +193,32 @@ def _fallback_analysis(name: str, reply_lang: str) -> AIAnalysis:
 
 
 class AIService:
-    """Groq (primary) → OpenRouter fallback: sentiment, classification, auto-reply."""
+    """DeepSeek (primary) → OpenRouter fallback: sentiment, classification, auto-reply."""
 
     def __init__(self) -> None:
         # (name, client, model)
         self._providers: list[tuple[str, httpx.Client, str]] = []
 
-        if settings.GROQ_API_KEY:
+        if settings.DEEPSEEK_API_KEY:
             try:
                 client = httpx.Client(
-                    base_url=settings.GROQ_BASE_URL,
+                    base_url=settings.DEEPSEEK_BASE_URL,
                     headers={
-                        "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+                        "Authorization": f"Bearer {settings.DEEPSEEK_API_KEY}",
                         "Content-Type": "application/json",
                     },
                     timeout=settings.AI_TIMEOUT,
                     follow_redirects=True,
                 )
-                self._providers.append(("groq", client, settings.GROQ_MODEL))
-                logger.info("Groq AI client initialized (model: %s)", settings.GROQ_MODEL)
+                self._providers.append(
+                    ("deepseek", client, settings.DEEPSEEK_MODEL)
+                )
+                logger.info(
+                    "DeepSeek AI client initialized (model: %s)",
+                    settings.DEEPSEEK_MODEL,
+                )
             except Exception as e:
-                logger.error("Failed to initialize Groq client: %s", e)
+                logger.error("Failed to initialize DeepSeek client: %s", e)
 
         if settings.OPENROUTER_API_KEY:
             try:

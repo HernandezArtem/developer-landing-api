@@ -4,7 +4,7 @@ Backend-сервис и одностраничный лендинг портфо
 
 **Production:** http://62.217.179.202  
 
-REST API с AI-анализом (Groq primary, OpenRouter fallback), email-уведомлениями (mail.ru), rate limiting и двойным хранением данных (MySQL на сервере / JSON локально). Фронтенд — RU/EN с переключателем языка.
+REST API с AI-анализом (DeepSeek primary, OpenRouter fallback), email-уведомлениями (mail.ru), rate limiting и двойным хранением данных (MySQL на сервере / JSON локально). Фронтенд — RU/EN с переключателем языка.
 
 ## Для проверки (без установки)
 
@@ -28,7 +28,7 @@ Postman: импортируйте `postman/Developer-Landing-API.postman_collect
 | Backend | Python 3.11+, FastAPI, Pydantic v2 |
 | БД (prod) | MySQL (Beget Cloud DB), SQLAlchemy |
 | Хранение (local) | JSON-файлы в `data/` |
-| AI | Groq (primary) + OpenRouter fallback |
+| AI | DeepSeek (primary) + OpenRouter fallback |
 | Email | mail.ru SMTP over SSL |
 | Frontend | HTML + Vanilla CSS + JavaScript + i18n |
 | Деплой | Beget VPS, nginx + gunicorn, GitHub Actions |
@@ -79,9 +79,9 @@ copy .env.example .env
 | Переменная | Описание |
 |---|---|
 | `SMTP_USER`, `SMTP_PASSWORD`, `OWNER_EMAIL` | Почта mail.ru |
-| `GROQ_API_KEY` | Ключ Groq (console.groq.com) — **основной** AI |
-| `GROQ_MODEL` | По умолчанию `llama-3.1-8b-instant` |
-| `OPENROUTER_API_KEY` | Ключ OpenRouter — **запасной**, если Groq недоступен |
+| `DEEPSEEK_API_KEY` | Ключ DeepSeek (platform.deepseek.com) — **основной** AI |
+| `DEEPSEEK_MODEL` | По умолчанию `deepseek-chat` |
+| `OPENROUTER_API_KEY` | Ключ OpenRouter — **запасной**, если DeepSeek недоступен |
 | `OPENROUTER_MODEL` | По умолчанию `mistralai/mistral-nemo` |
 | `DATABASE_URL` | **Локально оставить пустым** — данные в `data/*.json`. На VPS — строка MySQL (спецсимволы в пароле URL-кодируйте, `&` → `%26`) |
 | `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_WINDOW_SECONDS` | Лимит запросов с IP (по умолчанию **5 / 900 сек**) |
@@ -138,10 +138,10 @@ Repositories / DB             app/repositories/  +  app/db/
 Хранение                    MySQL (prod)  |  data/*.json (local)
 ```
 
-### Почему FastAPI / Groq / dual storage
+### Почему FastAPI / DeepSeek / dual storage
 
 - **FastAPI** — async из коробки, автогенерация OpenAPI/Swagger, Pydantic v2 для валидации на границе API; типизация снижает количество runtime-ошибок.
-- **Groq + OpenRouter** — основной вызов через Groq (`llama-3.1-8b-instant`); если Groq недоступен — запасной OpenRouter (`mistralai/mistral-nemo`). Датацентровые IP (Beget) иногда блокируются Cloudflare у OpenRouter.
+- **DeepSeek + OpenRouter** — основной вызов через DeepSeek (`deepseek-chat`, доступен с Beget); запасной OpenRouter (`mistralai/mistral-nemo`). Groq/OpenRouter с части RU/DC IP дают Cloudflare `403` после ужесточения ~конца июня 2026.
 - **Dual storage (MySQL + JSON)** — локально разработка без БД (`DATABASE_URL` пустой → `data/*.json`); на VPS тот же код пишет в MySQL Beget Cloud DB. Переключение только через `.env`.
 - **BackgroundTasks для SMTP** — AI ~5–8 с, SMTP ~10–15 с; письма уходят после HTTP 200, пользователь не ждёт почтовый сервер.
 - **Repository-слой** — `LogRepository` и `MetricsRepository` скрывают детали хранения; endpoint не знает, JSON это или MySQL.
@@ -322,7 +322,7 @@ curl http://localhost:8000/api/metrics
 
 ## AI-интеграция
 
-**Провайдер:** Groq (primary) → OpenRouter (fallback) · **Модели:** `llama-3.1-8b-instant` / `mistralai/mistral-nemo`
+**Провайдер:** DeepSeek (primary) → OpenRouter (fallback) · **Модели:** `deepseek-chat` / `mistralai/mistral-nemo`
 
 1. Тональность: `positive` / `neutral` / `negative`
 2. Категория: `project_inquiry` / `job_offer` / `consultation` / `other`
