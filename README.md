@@ -582,4 +582,3 @@ Fallback при недоступности API. BackgroundTasks для SMTP — 
 | Промпты `_PROMPT` / `_RETRY_PROMPT` | частично | ✅ финальная версия, примеры good/bad |
 | Postman-коллекция | ✅ | проверка на prod |
 
- вфывыффвывфы
