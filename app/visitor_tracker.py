@@ -207,6 +207,11 @@ class VisitorTrackerMiddleware(BaseHTTPMiddleware):
         if not self.track_filter(request):
             return response
 
+    # Rate limit / слишком много запросов — форму режем, в Telegram не трекаем
+        if response.status_code == 429:
+            return response
+
+
         content_type = response.headers.get("content-type", "")
         if "text/html" in content_type:
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
