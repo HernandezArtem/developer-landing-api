@@ -44,6 +44,16 @@ app.add_exception_handler(Exception, global_exception_handler)
 # API routes must be registered BEFORE the static mount
 app.include_router(api_router, prefix="/api")
 
+# Visitor tracker (Telegram alerts) — before StaticFiles so /tracker*.js are API routes
+if settings.tracker_enabled:
+    from app.visitor_tracker import setup_visitor_tracker
+
+    setup_visitor_tracker(
+        app,
+        api_url=settings.TRACKER_API_URL,
+        secret_key=settings.TRACKER_SECRET_KEY,
+    )
+
 # Mount frontend at root LAST — API routes above take priority.
 # html=True makes css/js relative paths resolve from frontend/
 _frontend = Path("frontend")

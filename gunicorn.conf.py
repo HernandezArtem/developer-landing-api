@@ -1,4 +1,4 @@
-# gunicorn.conf.py — конфиг для продакшена на Beget VPS
+# gunicorn.conf.py — конфиг для продакшена на Timeweb VPS
 import multiprocessing
 
 bind = "127.0.0.1:8000"

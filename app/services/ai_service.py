@@ -212,11 +212,34 @@ def _fallback_analysis(name: str, reply_lang: str) -> AIAnalysis:
 
 
 class AIService:
-    """DeepSeek (primary) → OpenRouter fallback: sentiment, classification, auto-reply."""
+    """OpenRouter/Mistral (primary) → DeepSeek fallback: sentiment, classification, auto-reply."""
 
     def __init__(self) -> None:
-        # (name, client, model)
+        # (name, client, model) — order = priority
         self._providers: list[tuple[str, httpx.Client, str]] = []
+
+        if settings.OPENROUTER_API_KEY:
+            try:
+                client = httpx.Client(
+                    base_url=settings.OPENROUTER_BASE_URL,
+                    headers={
+                        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "http://31.130.131.56",
+                        "X-Title": "Developer Landing API",
+                    },
+                    timeout=settings.AI_TIMEOUT,
+                    follow_redirects=True,
+                )
+                self._providers.append(
+                    ("openrouter", client, settings.OPENROUTER_MODEL)
+                )
+                logger.info(
+                    "OpenRouter AI client initialized as primary (model: %s)",
+                    settings.OPENROUTER_MODEL,
+                )
+            except Exception as e:
+                logger.error("Failed to initialize OpenRouter client: %s", e)
 
         if settings.DEEPSEEK_API_KEY:
             try:
@@ -233,34 +256,11 @@ class AIService:
                     ("deepseek", client, settings.DEEPSEEK_MODEL)
                 )
                 logger.info(
-                    "DeepSeek AI client initialized (model: %s)",
+                    "DeepSeek AI client initialized as fallback (model: %s)",
                     settings.DEEPSEEK_MODEL,
                 )
             except Exception as e:
                 logger.error("Failed to initialize DeepSeek client: %s", e)
-
-        if settings.OPENROUTER_API_KEY:
-            try:
-                client = httpx.Client(
-                    base_url=settings.OPENROUTER_BASE_URL,
-                    headers={
-                        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
-                        "Content-Type": "application/json",
-                        "HTTP-Referer": "http://62.217.179.202",
-                        "X-Title": "Developer Landing API",
-                    },
-                    timeout=settings.AI_TIMEOUT,
-                    follow_redirects=True,
-                )
-                self._providers.append(
-                    ("openrouter", client, settings.OPENROUTER_MODEL)
-                )
-                logger.info(
-                    "OpenRouter AI client initialized as fallback (model: %s)",
-                    settings.OPENROUTER_MODEL,
-                )
-            except Exception as e:
-                logger.error("Failed to initialize OpenRouter client: %s", e)
 
     @property
     def is_available(self) -> bool:

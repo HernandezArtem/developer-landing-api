@@ -2,9 +2,9 @@
 
 Backend-сервис и одностраничный лендинг портфолио разработчика.
 
-**Production:** http://62.217.179.202  
+**Production:** http://31.130.131.56  
 
-REST API с AI-анализом (DeepSeek primary, OpenRouter fallback), email-уведомлениями (mail.ru), rate limiting и двойным хранением данных (MySQL на сервере / JSON локально). Фронтенд — RU/EN с переключателем языка.
+REST API с AI-анализом (OpenRouter/Mistral primary, DeepSeek fallback), email-уведомлениями (mail.ru), rate limiting и двойным хранением данных (MySQL на сервере / JSON локально). Фронтенд — RU/EN с переключателем языка.
 
 ## Для проверки (без установки)
 
@@ -12,8 +12,8 @@ REST API с AI-анализом (DeepSeek primary, OpenRouter fallback), email-�
 
 | Что | URL |
 |---|---|
-| Лендинг | http://62.217.179.202 |
-| Swagger (OpenAPI) | http://62.217.179.202/docs |
+| Лендинг | http://31.130.131.56 |
+| Swagger (OpenAPI) | http://31.130.131.56/docs |
 
 Postman: импортируйте `postman/Developer-Landing-API.postman_collection.json` — переменная `base_url` уже указывает на prod.
 
@@ -26,12 +26,12 @@ Postman: импортируйте `postman/Developer-Landing-API.postman_collect
 | Слой | Технология |
 |---|---|
 | Backend | Python 3.11+, FastAPI, Pydantic v2 |
-| БД (prod) | MySQL (Beget Cloud DB), SQLAlchemy |
+| БД (prod) | MySQL (на Timeweb VPS), SQLAlchemy |
 | Хранение (local) | JSON-файлы в `data/` |
-| AI | DeepSeek (primary) + OpenRouter fallback |
+| AI | OpenRouter / Mistral Nemo (primary) + DeepSeek fallback |
 | Email | mail.ru SMTP over SSL |
 | Frontend | HTML + Vanilla CSS + JavaScript + i18n |
-| Деплой | Beget VPS, nginx + gunicorn, GitHub Actions |
+| Деплой | Timeweb VPS (Amsterdam), nginx + gunicorn, GitHub Actions |
 
 ---
 
@@ -79,11 +79,12 @@ copy .env.example .env
 | Переменная | Описание |
 |---|---|
 | `SMTP_USER`, `SMTP_PASSWORD`, `OWNER_EMAIL` | Почта mail.ru |
-| `DEEPSEEK_API_KEY` | Ключ DeepSeek (platform.deepseek.com) — **основной** AI |
-| `DEEPSEEK_MODEL` | По умолчанию `deepseek-chat` |
-| `OPENROUTER_API_KEY` | Ключ OpenRouter — **запасной**, если DeepSeek недоступен |
+| `OPENROUTER_API_KEY` | Ключ OpenRouter — **основной** AI (Mistral Nemo) |
 | `OPENROUTER_MODEL` | По умолчанию `mistralai/mistral-nemo` |
+| `DEEPSEEK_API_KEY` | Ключ DeepSeek — **запасной**, если OpenRouter недоступен |
+| `DEEPSEEK_MODEL` | По умолчанию `deepseek-chat` |
 | `DATABASE_URL` | **Локально оставить пустым** — данные в `data/*.json`. На VPS — строка MySQL (спецсимволы в пароле URL-кодируйте, `&` → `%26`) |
+| `TRACKER_API_URL` / `TRACKER_SECRET_KEY` | Visitor Tracker (Telegram). Без `TRACKER_SECRET_KEY` трекер отключён |
 | `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_WINDOW_SECONDS` | Лимит запросов с IP (по умолчанию **5 / 900 сек**) |
 
 ### 4. Запуск локально
@@ -119,7 +120,7 @@ python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 | Сценарий | `base_url` |
 |---|---|
-| Проверка на сервере (по умолчанию в коллекции) | `http://62.217.179.202` |
+| Проверка на сервере (по умолчанию в коллекции) | `http://31.130.131.56` |
 | Локальный запуск | `http://localhost:8000` |
 
 ---
@@ -141,8 +142,8 @@ Repositories / DB             app/repositories/  +  app/db/
 ### Почему FastAPI / DeepSeek / dual storage
 
 - **FastAPI** — async из коробки, автогенерация OpenAPI/Swagger, Pydantic v2 для валидации на границе API; типизация снижает количество runtime-ошибок.
-- **DeepSeek + OpenRouter** — основной вызов через DeepSeek (`deepseek-chat`, доступен с Beget); запасной OpenRouter (`mistralai/mistral-nemo`). Groq/OpenRouter с части RU/DC IP дают Cloudflare `403` после ужесточения ~конца июня 2026.
-- **Dual storage (MySQL + JSON)** — локально разработка без БД (`DATABASE_URL` пустой → `data/*.json`); на VPS тот же код пишет в MySQL Beget Cloud DB. Переключение только через `.env`.
+- **OpenRouter + DeepSeek** — основной вызов через OpenRouter (`mistralai/mistral-nemo`, доступен с Timeweb Amsterdam); запасной DeepSeek (`deepseek-chat`).
+- **Dual storage (MySQL + JSON)** — локально разработка без БД (`DATABASE_URL` пустой → `data/*.json`); на VPS тот же код пишет в MySQL на том же сервере. Переключение только через `.env`.
 - **BackgroundTasks для SMTP** — AI ~5–8 с, SMTP ~10–15 с; письма уходят после HTTP 200, пользователь не ждёт почтовый сервер.
 - **Repository-слой** — `LogRepository` и `MetricsRepository` скрывают детали хранения; endpoint не знает, JSON это или MySQL.
 - **Graceful degradation** — при недоступности AI (оба провайдера) или SMTP сервис отвечает 200 с fallback-текстом, ошибки пишутся в лог.
@@ -208,16 +209,16 @@ developer-landing-api/
 ```json
 {
   "name": "Иван Иванов",
-  "phone": "+79991234567",
   "email": "ivan@example.com",
   "comment": "Хочу обсудить разработку CRM для нашей компании",
+  "privacy_consent": true,
   "locale": "ru"
 }
 ```
 
-Поле `locale` — `ru` или `en` (язык интерфейса; влияет на fallback-тексты). Язык AI-ответа определяется по тексту `comment`.
+Поле `locale` — `ru` или `en` (язык интерфейса; влияет на fallback-тексты). Язык AI-ответа определяется по тексту `comment`. Поле `phone` опционально (на форме не запрашивается).
 
-**Валидация:** имя 2–100 символов; телефон `+?[0-9]{10,15}`; email латиницей + MX-проверка; комментарий 10–2000 символов; сообщения 422 на языке `locale`.
+**Валидация:** имя 2–100 символов; email латиницей + MX-проверка; комментарий 10–2000 символов; `privacy_consent` должен быть `true`; сообщения 422 на языке `locale`.
 
 **Успех (200):**
 ```json
@@ -245,7 +246,7 @@ developer-landing-api/
 ```bash
 curl -X POST http://localhost:8000/api/contact \
   -H "Content-Type: application/json" \
-  -d '{"name":"Иван","phone":"+79991234567","email":"bad@","comment":"коротко","locale":"ru"}'
+  -d '{"name":"Иван","email":"bad@","comment":"коротко","privacy_consent":true,"locale":"ru"}'
 ```
 
 ```json
@@ -322,7 +323,7 @@ curl http://localhost:8000/api/metrics
 
 ## AI-интеграция
 
-**Провайдер:** DeepSeek (primary) → OpenRouter (fallback) · **Модели:** `deepseek-chat` / `mistralai/mistral-nemo`
+**Провайдер:** OpenRouter / Mistral (primary) → DeepSeek (fallback) · **Модели:** `mistralai/mistral-nemo` / `deepseek-chat`
 
 1. Тональность: `positive` / `neutral` / `negative`
 2. Категория: `project_inquiry` / `job_offer` / `consultation` / `other`
@@ -416,16 +417,16 @@ Rate limiting использует тот же режим: JSON-файл лок�
 |---|---|---|
 | Разметка | `index.html` | Hero, стек, проекты, форма обратной связи |
 | Стили | `css/style.css` | Светлая тема, BMW M градиенты, scroll-reveal, нативный scrollbar |
-| Логика формы | `js/main.js` | Валидация, маска телефона `+7 (XXX)-XXX-XXXX`, fetch → API |
+| Логика формы | `js/main.js` | Валидация, согласие на ПДн, cookie-баннер, fetch → API |
 | i18n RU/EN | `js/i18n.js` | Словарь переводов, переключатель языка, `localStorage`, имя RU/EN |
 
 **Форма обратной связи:**
-- Клиентская валидация (имя, телефон, email, комментарий 10–2000 символов)
-- Маска телефона — только цифры, отправка в API как `+7XXXXXXXXXX`
-- Поле `locale` (`ru`/`en`) передаётся вместе с формой
+- Клиентская валидация (имя, email, комментарий 10–2000 символов)
+- Обязательный чекбокс согласия на обработку персональных данных
+- Поле `locale` (`ru`/`en`) и `privacy_consent: true` передаются вместе с формой
 - При 422 — общее сообщение об ошибке (без `details[]` с сервера)
 - При 429 — общая ошибка rate limit
-
+- Cookie-баннер (stub): принять/отклонить сохраняется в `localStorage`
 **AI-ответ на экране:**
 После успешной отправки форма скрывается, показывается блок «Сообщение отправлено!» с `ai_analysis.auto_reply` из ответа API. Текст проходит `sanitizeAutoReply()` — отфильтровывает утечки промпта на клиенте.
 
@@ -454,7 +455,7 @@ Rate limiting использует тот же режим: JSON-файл лок�
   "request_id": "550e8400-e29b-41d4-a716-446655440000",
   "ip": "127.0.0.1",
   "name": "Иван Иванов",
-  "phone": "+79991234567",
+  "phone": null,
   "email": "ivan@example.com",
   "comment": "Хочу обсудить разработку CRM...",
   "comment_length": 52,
@@ -475,25 +476,25 @@ Rate limiting использует тот же режим: JSON-файл лок�
 - **Rate limiting** — 5 запросов за окно `RATE_LIMIT_WINDOW_SECONDS` (по умолчанию 120 сек) с IP; ответ 429 + заголовок `Retry-After`; счётчик в `data/rate_limits.json` или MySQL `rate_limits`
 - **422 без раскрытия схемы** — клиенту только `"error": "Ошибка валидации данных"`; поля и причины — в серверный лог
 - **Email** — только латиница; MX-проверка (`check_deliverability=True`); сообщения 422 на языке `locale`
-- **Pydantic-валидация** — имя (regex), телефон (`+?[0-9]{10,15}`), комментарий (10–2000)
+- **Pydantic-валидация** — имя (regex), email (MX), комментарий (10–2000), обязательный `privacy_consent`
 - **Prompt leak filter** — на backend и frontend отсекаются фрагменты системного промпта в `auto_reply`
 - **Secrets** — `.env` в `.gitignore`; ключи OpenRouter/SMTP только через переменные окружения
 
-На prod (Beget VPS) запросы идут через **nginx → gunicorn**; `data/`, `.env` и исходники Python не должны отдаваться из document root — только прокси на приложение.
+На prod (Timeweb VPS) запросы идут через **nginx → gunicorn**; `data/`, `.env` и исходники Python не должны отдаваться из document root — только прокси на приложение.
 
 ---
 
 ## Деплой
 
-### Production (Beget VPS)
+### Production (Timeweb VPS, Amsterdam)
 
 Сервер: `/var/www/developer-landing-api`, сервис `developer-api` (gunicorn + nginx).
 
-**CI/CD:** push в `master` → GitHub Actions (`.github/workflows/deploy.yml`) → SSH → `git pull` → `pip install` → `systemctl restart developer-api`.
+**CI/CD:** push в `master` → GitHub Actions (`.github/workflows/deploy.yml`) → SSH → `git fetch` + `git reset --hard origin/master` → `pip install` → `systemctl restart developer-api`.
 
 Секреты в GitHub: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`.
 
-На сервере в `.env` указывается `DATABASE_URL` к Beget Cloud MySQL (приватная сеть `10.x.x.x`).
+На сервере в `.env` указывается `DATABASE_URL` к MySQL на localhost (`127.0.0.1`). Опционально: `TRACKER_API_URL` / `TRACKER_SECRET_KEY` для Visitor Tracker.
 
 ### Первичная настройка VPS (один раз)
 
@@ -512,18 +513,18 @@ cp .env.example .env && nano .env
 
 ```bash
 # Обращение
-curl -X POST http://62.217.179.202/api/contact \
+curl -X POST http://31.130.131.56/api/contact \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Иван Иванов",
-    "phone": "+79991234567",
     "email": "ivan@example.com",
     "comment": "Хочу обсудить разработку CRM для нашей компании",
+    "privacy_consent": true,
     "locale": "ru"
   }'
 
-curl http://62.217.179.202/api/health
-curl http://62.217.179.202/api/metrics
+curl http://31.130.131.56/api/health
+curl http://31.130.131.56/api/metrics
 ```
 
 ---
@@ -552,7 +553,7 @@ AI-анализ через OpenRouter, email через SMTP, rate limiting, л�
 
 ```
 Напиши одностраничный лендинг: HTML + CSS + JS, форма с валидацией,
-маска телефона +7, fetch POST /api/contact, показ ai_analysis.auto_reply после отправки.
+согласие на ПДн, fetch POST /api/contact, показ ai_analysis.auto_reply после отправки.
 ```
 
 ```
@@ -571,14 +572,15 @@ Fallback при недоступности API. BackgroundTasks для SMTP — 
 | Компонент | AI-инструменты (Cursor/Antigravity) | Вручную |
 |---|---|---|
 | Структура проекта, endpoints, schemas | ✅ | |
-| Repository + dual storage (каркас) | ✅ | MySQL на Beget, URL-кодирование пароля |
+| Repository + dual storage (каркас) | ✅ | MySQL на Timeweb VPS, URL-кодирование пароля |
 | AI-сервис (каркас + HTTP-клиент) | ✅ | Промпты, retry, leak/generic-фильтры, offtopic |
 | Email-сервис (каркас) | ✅ | SMTP mail.ru, шаблоны писем |
-| Frontend (HTML/CSS/JS каркас) | ✅ | Тексты лендинга, phone mask fix, i18n-тексты |
+| Frontend (HTML/CSS/JS каркас) | ✅ | Тексты лендинга, consent/cookies, i18n-тексты |
 | README (черновик) | ✅ | Деплой, CI/CD, prod-URL, разделы по ТЗ |
 | Rate limiter | ✅ | MySQL BIGINT `window_start`, без JSON-fallback на prod |
-| GitHub Actions deploy | | ✅ `.github/workflows/deploy.yml` |
-| nginx + gunicorn + systemd на VPS | | ✅ |
+| Visitor Tracker | ✅ | ключи в `.env`, проверка Telegram-алертов |
+| GitHub Actions deploy | | ✅ `.github/workflows/deploy.yml` (`reset --hard`) |
+| nginx + gunicorn + systemd на VPS | | ✅ Timeweb Amsterdam |
 | Промпты `_PROMPT` / `_RETRY_PROMPT` | частично | ✅ финальная версия, примеры good/bad |
 | Postman-коллекция | ✅ | проверка на prod |
 

@@ -36,12 +36,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     OWNER_EMAIL: str = ""
 
-    # DeepSeek AI (primary) — OpenAI-compatible API
-    DEEPSEEK_API_KEY: str = ""
-    DEEPSEEK_MODEL: str = "deepseek-chat"
-    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
-
-    # OpenRouter AI (fallback, Mistral Nemo)
+    # OpenRouter AI (primary, Mistral Nemo)
     OPENROUTER_API_KEY: str = Field(
         default="",
         validation_alias=AliasChoices("OPENROUTER_API_KEY", "MISTRAL_API_KEY"),
@@ -53,16 +48,32 @@ class Settings(BaseSettings):
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     AI_TIMEOUT: int = 15
 
+    # DeepSeek AI (fallback) — OpenAI-compatible API
+    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_MODEL: str = "deepseek-chat"
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
+
     # Rate limiting — окно в секундах (900 = 15 мин для жёсткого продакшена)
     RATE_LIMIT_REQUESTS: int = 5
     RATE_LIMIT_WINDOW_SECONDS: int = 120
 
-    # MySQL (Beget Cloud DB) — if set, data goes to DB instead of JSON files
+    # MySQL — if set, data goes to DB instead of JSON files
     DATABASE_URL: str = ""
+
+    # Visitor Tracker (Telegram / TgBOT) — leave secret empty to disable
+    TRACKER_API_URL: str = "https://bots-one-phi.vercel.app/api/track"
+    TRACKER_SECRET_KEY: str = Field(
+        default="",
+        validation_alias=AliasChoices("TRACKER_SECRET_KEY", "SECRET_KEY"),
+    )
 
     @property
     def use_mysql(self) -> bool:
         return bool(self.DATABASE_URL.strip())
+
+    @property
+    def tracker_enabled(self) -> bool:
+        return bool(self.TRACKER_SECRET_KEY.strip())
 
     # Paths (used when DATABASE_URL is empty)
     DATA_DIR: Path = Path("data")

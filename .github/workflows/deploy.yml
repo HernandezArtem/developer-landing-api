@@ -8,15 +8,17 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to Beget VPS
+      - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            set -e
             cd /var/www/developer-landing-api
-            git pull origin master
+            git fetch origin
+            git reset --hard origin/master
             source venv/bin/activate
             pip install -r requirements.txt -q
             systemctl restart developer-api
