@@ -76,10 +76,6 @@ class EmailService:
             <td style="font-weight:600;color:#555;width:30%;vertical-align:top;">Имя</td>
             <td style="color:#222;">{data.name}</td>
           </tr>
-          <tr style="border-bottom:1px solid #f0f0f0;background:#fafafa;">
-            <td style="font-weight:600;color:#555;vertical-align:top;">Телефон</td>
-            <td style="color:#222;">{data.phone}</td>
-          </tr>
           <tr style="border-bottom:1px solid #f0f0f0;">
             <td style="font-weight:600;color:#555;vertical-align:top;">Email</td>
             <td><a href="mailto:{data.email}" style="color:#5b7cf0;">{data.email}</a></td>

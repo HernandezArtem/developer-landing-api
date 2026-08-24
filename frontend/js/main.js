@@ -39,86 +39,6 @@ textarea.addEventListener('input', () => {
   charCount.style.color = n > 1800 ? 'var(--red)' : '';
 });
 
-/* ── Phone mask +7 (XXX)-XXX-XXXX ─────────────────── */
-const phoneInput = document.getElementById('f-phone');
-let phoneDigits = '';
-
-function normalizePhoneDigits(raw) {
-  let d = String(raw).replace(/\D/g, '');
-  if (!d) return '';
-  while (d.length > 10 && (d[0] === '7' || d[0] === '8')) d = d.slice(1);
-  if (d.length === 11 && (d[0] === '7' || d[0] === '8')) d = d.slice(1);
-  return d.slice(0, 10);
-}
-
-function getPhoneDigits(value) {
-  return normalizePhoneDigits(value);
-}
-
-function formatPhone(digits) {
-  if (!digits.length) return '';
-  let masked = '+7';
-  masked += ' (' + digits.slice(0, 3);
-  if (digits.length >= 3) masked += ')';
-  if (digits.length > 3) masked += '-' + digits.slice(3, 6);
-  if (digits.length > 6) masked += '-' + digits.slice(6, 10);
-  return masked;
-}
-
-function renderPhone() {
-  const formatted = formatPhone(phoneDigits);
-  phoneInput.value = formatted;
-  phoneInput.setSelectionRange(formatted.length, formatted.length);
-}
-
-phoneInput.addEventListener('paste', e => {
-  e.preventDefault();
-  const text = (e.clipboardData || window.clipboardData).getData('text');
-  phoneDigits = normalizePhoneDigits(text);
-  renderPhone();
-});
-
-phoneInput.addEventListener('keydown', e => {
-  if (e.ctrlKey || e.metaKey || e.altKey) return;
-
-  const hasSelection = phoneInput.selectionStart !== phoneInput.selectionEnd;
-
-  if (e.key === 'Backspace' || e.key === 'Delete') {
-    e.preventDefault();
-    if (hasSelection) {
-      phoneDigits = '';
-    } else if (e.key === 'Backspace') {
-      phoneDigits = phoneDigits.slice(0, -1);
-    }
-    renderPhone();
-    return;
-  }
-
-  if (e.key.length === 1) {
-    e.preventDefault();
-    if (/\d/.test(e.key)) {
-      if (hasSelection) phoneDigits = '';
-      if (phoneDigits.length < 10) {
-        phoneDigits += e.key;
-        renderPhone();
-      }
-    }
-  }
-});
-
-// Fallback for mobile keyboards that may skip keydown
-phoneInput.addEventListener('input', () => {
-  const parsed = normalizePhoneDigits(phoneInput.value);
-  phoneDigits = parsed;
-  const formatted = formatPhone(phoneDigits);
-  if (phoneInput.value !== formatted) renderPhone();
-});
-
-phoneInput.addEventListener('blur', () => {
-  const err = rules.phone(phoneInput.value);
-  err ? setErr('phone', err) : setOk('phone');
-});
-
 /* ── Smooth scroll with nav offset ──────────────────── */
 document.querySelectorAll('a[href^="#"]').forEach(a => {
   a.addEventListener('click', e => {
@@ -136,11 +56,6 @@ const ASCII_EMAIL_RE = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,63}$/;
 
 const rules = {
   name: v => !v.trim() ? t('validation.nameRequired') : v.trim().length < 2 ? t('validation.nameMin') : v.trim().length > 100 ? t('validation.nameMax') : /[^a-zA-Zа-яА-ЯёЁ\s\-']/.test(v.trim()) ? t('validation.nameChars') : null,
-  phone: v => {
-    if (!v.trim() && !phoneDigits.length) return t('validation.phoneRequired');
-    if (phoneDigits.length < 10) return t('validation.phoneIncomplete');
-    return null;
-  },
   email: v => {
     const s = v.trim();
     if (!s) return t('validation.emailRequired');
@@ -173,6 +88,32 @@ function clearState(id) {
   e.textContent = '';
 }
 
+function refreshVisibleErrors() {
+  ['name', 'email', 'comment'].forEach(id => {
+    const g = document.getElementById('fg-' + id);
+    if (!g || !g.classList.contains('has-err')) return;
+    const el = document.getElementById('f-' + id);
+    if (!el) return;
+    const err = rules[id](el.value);
+    if (err) setErr(id, err);
+  });
+
+  const consentGroup = document.getElementById('fg-consent');
+  if (consentGroup && consentGroup.classList.contains('has-err')) {
+    setErr('consent', t('validation.consentRequired'));
+  }
+
+  if (formError && !formError.hidden && formErrorKind) {
+    if (formErrorKind === 'rateLimit') {
+      showError(formatRateLimitError(formErrorRetryAfter), 'rateLimit', formErrorRetryAfter);
+    } else {
+      showError(t('errors.' + formErrorKind), formErrorKind);
+    }
+  }
+}
+
+document.addEventListener('langchange', refreshVisibleErrors);
+
 ['name','email','comment'].forEach(id => {
   const el = document.getElementById('f-' + id);
   if (!el) return;
@@ -180,12 +121,76 @@ function clearState(id) {
   el.addEventListener('input', () => { if (document.getElementById('fg-'+id).classList.contains('has-err')) { if (!rules[id](el.value)) setOk(id); } });
 });
 
-// Phone: validate on input after mask applied
-phoneInput.addEventListener('input', () => {
-  if (document.getElementById('fg-phone').classList.contains('has-err')) {
-    if (!rules.phone(phoneInput.value)) setOk('phone');
+const consentInput = document.getElementById('f-consent');
+if (consentInput) {
+  consentInput.addEventListener('change', () => {
+    if (consentInput.checked) setOk('consent');
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   COOKIE BANNER (stub)
+═══════════════════════════════════════════════════════ */
+const COOKIE_KEY = 'cookie_consent';
+const cookieBanner = document.getElementById('cookieBanner');
+const cookieAccept = document.getElementById('cookieAccept');
+const cookieReject = document.getElementById('cookieReject');
+
+function hideCookieBanner() {
+  if (!cookieBanner) return;
+  cookieBanner.hidden = true;
+  cookieBanner.classList.remove('is-visible', 'is-leaving', 'is-accepted');
+}
+
+function showCookieBanner() {
+  if (!cookieBanner) return;
+  cookieBanner.hidden = false;
+  cookieBanner.classList.remove('is-leaving', 'is-accepted');
+  requestAnimationFrame(() => {
+    cookieBanner.classList.add('is-visible');
+  });
+}
+
+function dismissCookieBanner(animated) {
+  if (!cookieBanner) return;
+  if (!animated) {
+    hideCookieBanner();
+    return;
   }
-});
+  cookieBanner.classList.add('is-leaving');
+  cookieBanner.classList.remove('is-visible');
+  const done = () => hideCookieBanner();
+  cookieBanner.addEventListener('transitionend', done, { once: true });
+  setTimeout(done, 450);
+}
+
+function setCookieConsent(value) {
+  try {
+    localStorage.setItem(COOKIE_KEY, value);
+  } catch (_) { /* ignore */ }
+
+  if (value === 'accepted' && cookieBanner) {
+    cookieBanner.classList.add('is-accepted');
+    setTimeout(() => dismissCookieBanner(true), 1100);
+    return;
+  }
+  dismissCookieBanner(true);
+}
+
+(function initCookieBanner() {
+  if (!cookieBanner) return;
+  let stored = null;
+  try {
+    stored = localStorage.getItem(COOKIE_KEY);
+  } catch (_) { /* ignore */ }
+  if (stored === 'accepted' || stored === 'rejected') {
+    hideCookieBanner();
+    return;
+  }
+  showCookieBanner();
+  if (cookieAccept) cookieAccept.addEventListener('click', () => setCookieConsent('accepted'));
+  if (cookieReject) cookieReject.addEventListener('click', () => setCookieConsent('rejected'));
+})();
 
 /* ═══════════════════════════════════════════════════════
    FORM SUBMIT
@@ -196,6 +201,8 @@ const formError   = document.getElementById('formError');
 const formSuccess = document.getElementById('formSuccess');
 const successText = document.getElementById('successText');
 const resetBtn    = document.getElementById('resetBtn');
+let formErrorKind = null;
+let formErrorRetryAfter = 0;
 
 function setLoading(on) {
   submitBtn.disabled = on;
@@ -237,7 +244,9 @@ function showSuccess(reply) {
   formSuccess.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-function showError(msg) {
+function showError(msg, kind, retryAfter) {
+  formErrorKind = kind || null;
+  formErrorRetryAfter = Number(retryAfter) || 0;
   formError.textContent = msg;
   formError.hidden = false;
 }
@@ -245,21 +254,31 @@ function showError(msg) {
 form.addEventListener('submit', async e => {
   e.preventDefault();
   formError.hidden = true;
+  formErrorKind = null;
+  formErrorRetryAfter = 0;
 
-  const fields = ['name','phone','email','comment'];
+  const fields = ['name','email','comment'];
   let hasErr = false;
   fields.forEach(id => {
     const el = document.getElementById('f-' + id);
     const err = rules[id](el.value);
     err ? (setErr(id, err), hasErr = true) : setOk(id);
   });
+
+  if (!consentInput || !consentInput.checked) {
+    setErr('consent', t('validation.consentRequired'));
+    hasErr = true;
+  } else {
+    setOk('consent');
+  }
+
   if (hasErr) return;
 
   const body = {
     name:    document.getElementById('f-name').value.trim(),
-    phone:   phoneDigits.length === 10 ? '+7' + phoneDigits : '',
     email:   document.getElementById('f-email').value.trim(),
     comment: document.getElementById('f-comment').value.trim(),
+    privacy_consent: true,
     locale:  getLang(),
   };
 
@@ -275,14 +294,14 @@ form.addEventListener('submit', async e => {
     if (res.ok && data.success) {
       showSuccess(data.ai_analysis?.auto_reply);
     } else if (res.status === 422) {
-      showError(data.error || t('errors.generic'));
+      showError(data.error || t('errors.generic'), data.error ? null : 'generic');
     } else if (res.status === 429) {
-      showError(formatRateLimitError(data.retry_after_seconds));
+      showError(formatRateLimitError(data.retry_after_seconds), 'rateLimit', data.retry_after_seconds);
     } else {
-      showError(data.error || t('errors.generic'));
+      showError(data.error || t('errors.generic'), data.error ? null : 'generic');
     }
   } catch {
-    showError(t('errors.network'));
+    showError(t('errors.network'), 'network');
   } finally {
     setLoading(false);
   }
@@ -290,14 +309,13 @@ form.addEventListener('submit', async e => {
 
 resetBtn.addEventListener('click', () => {
   form.reset();
-  phoneDigits = '';
   charCount.textContent = '0 / 2000';
-  ['name','phone','email','comment'].forEach(clearState);
+  ['name','email','comment','consent'].forEach(clearState);
   form.hidden = false;
   formSuccess.hidden = true;
   successText.hidden = true;
   successText.textContent = '';
   formError.hidden = true;
+  formErrorKind = null;
+  formErrorRetryAfter = 0;
 });
-
-

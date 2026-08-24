@@ -36,7 +36,6 @@ _MSGS = {
         "name_min": "Имя должно содержать минимум 2 символа",
         "name_max": "Имя не должно превышать 100 символов",
         "name_chars": "Имя может содержать только буквы, пробелы и дефис",
-        "phone_invalid": "Неверный формат. Пример: +79991234567",
         "email_required": "Укажите email",
         "email_format": "Неверный формат email. Пример: ivan@example.com",
         "email_latin": "Email только латинскими буквами, цифрами и символами (a-z, 0-9, @, точка, дефис)",
@@ -44,12 +43,12 @@ _MSGS = {
         "email_domain": "Домен email не найден или не принимает почту. Проверьте адрес.",
         "comment_min": "Напишите хотя бы 10 символов — расскажите подробнее",
         "comment_max": "Максимум 2000 символов",
+        "consent_required": "Нужно согласие на обработку персональных данных",
     },
     "en": {
         "name_min": "Name must be at least 2 characters",
         "name_max": "Name must not exceed 100 characters",
         "name_chars": "Name may contain letters, spaces and hyphens only",
-        "phone_invalid": "Invalid format. Example: +79991234567",
         "email_required": "Enter your email",
         "email_format": "Invalid email format. Example: john@example.com",
         "email_latin": "Email must use Latin letters, digits and symbols only (a-z, 0-9, @, dot, hyphen)",
@@ -57,6 +56,7 @@ _MSGS = {
         "email_domain": "Email domain not found or does not accept mail.",
         "comment_min": "Write at least 10 characters — tell us more",
         "comment_max": "Maximum 2000 characters",
+        "consent_required": "Please agree to personal data processing",
     },
 }
 
@@ -74,9 +74,10 @@ _ASCII_EMAIL_RE = re.compile(
 class ContactRequest(BaseModel):
     locale: LocaleType = LocaleType.ru
     name: str
-    phone: str
     email: str
     comment: str
+    privacy_consent: bool = False
+    phone: Optional[str] = None
 
     @field_validator("name")
     @classmethod
@@ -90,13 +91,20 @@ class ContactRequest(BaseModel):
             raise ValueError(_m("name_chars", info))
         return v
 
+    @field_validator("privacy_consent")
+    @classmethod
+    def validate_privacy_consent(cls, v: bool, info: ValidationInfo) -> bool:
+        if v is not True:
+            raise ValueError(_m("consent_required", info))
+        return v
+
     @field_validator("phone")
     @classmethod
-    def validate_phone(cls, v: str, info: ValidationInfo) -> str:
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
         cleaned = re.sub(r"[\s\-\(\)]", "", v.strip())
-        if not re.match(r"^\+?[0-9]{10,15}$", cleaned):
-            raise ValueError(_m("phone_invalid", info))
-        return cleaned
+        return cleaned or None
 
     @field_validator("email")
     @classmethod
