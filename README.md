@@ -565,23 +565,4 @@ Fallback при недоступности API. BackgroundTasks для SMTP — 
 Добавь i18n RU/EN: словарь переводов, переключатель языка, locale в теле запроса.
 ```
 
-### AI сгенерировал / вручную
-
-В колонке AI-инструменты отмечены задачи, где использовались Cursor и/или Antigravity IDE (Gemini 3.5 Flash) для генерации каркаса и черновиков.
-
-| Компонент | AI-инструменты (Cursor/Antigravity) | Вручную |
-|---|---|---|
-| Структура проекта, endpoints, schemas | ✅ | |
-| Repository + dual storage (каркас) | ✅ | MySQL на Timeweb VPS, URL-кодирование пароля |
-| AI-сервис (каркас + HTTP-клиент) | ✅ | Промпты, retry, leak/generic-фильтры, offtopic |
-| Email-сервис (каркас) | ✅ | SMTP mail.ru, шаблоны писем |
-| Frontend (HTML/CSS/JS каркас) | ✅ | Тексты лендинга, consent/cookies, i18n-тексты |
-| README (черновик) | ✅ | Деплой, CI/CD, prod-URL, разделы по ТЗ |
-| Rate limiter | ✅ | MySQL BIGINT `window_start`, без JSON-fallback на prod |
-| Visitor Tracker | ✅ | ключи в `.env`, проверка Telegram-алертов |
-| GitHub Actions deploy | | ✅ `.github/workflows/deploy.yml` (`reset --hard`) |
-| nginx + gunicorn + systemd на VPS | | ✅ Timeweb Amsterdam |
-| Промпты `_PROMPT` / `_RETRY_PROMPT` | частично | ✅ финальная версия, примеры good/bad |
-| Postman-коллекция | ✅ | проверка на prod |
-
  
