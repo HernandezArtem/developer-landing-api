@@ -1,4 +1,6 @@
 ﻿from pathlib import Path
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +20,7 @@ from app.db import init_db
 
 setup_logging()
 init_db()
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -44,7 +47,7 @@ app.add_exception_handler(Exception, global_exception_handler)
 # API routes must be registered BEFORE the static mount
 app.include_router(api_router, prefix="/api")
 
-# Visitor tracker (Telegram alerts) — before StaticFiles so /tracker*.js are API routes
+# Visitor tracker — MUST run before StaticFiles (/tracker.js, /tracker-config.js)
 if settings.tracker_enabled:
     from app.visitor_tracker import setup_visitor_tracker
 
@@ -53,9 +56,13 @@ if settings.tracker_enabled:
         api_url=settings.TRACKER_API_URL,
         secret_key=settings.TRACKER_SECRET_KEY,
     )
+    logger.info("Visitor tracker enabled (%s)", settings.TRACKER_API_URL)
+else:
+    logger.warning(
+        "Visitor tracker DISABLED: set TRACKER_SECRET_KEY (or SECRET_KEY) in .env"
+    )
 
 # Mount frontend at root LAST — API routes above take priority.
-# html=True makes css/js relative paths resolve from frontend/
 _frontend = Path("frontend")
 if _frontend.exists():
     app.mount("/", StaticFiles(directory="frontend", html=True), name="static")
